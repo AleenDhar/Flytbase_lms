@@ -18,7 +18,7 @@ export default function AuthGuard2({
     const fetchUser = async () => {
       const supabase = createClient();
       const { data } = await supabase.auth.getUser();
-      console.log(data.user);
+      // console.log(data.user);
       if (data.user) {
         router.replace("/"); // Redirect to login page if no user
       } else {

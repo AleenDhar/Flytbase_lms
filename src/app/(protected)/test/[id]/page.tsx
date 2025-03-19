@@ -246,7 +246,7 @@ const TestPage = () => {
             {currentQuestion.options?.map((option) => (
               <div
                 key={option.id}
-                className="flex items-start space-x-3 p-4 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-secondary/30 transition-colors"
+                className="flex items-start space-x-3 p-4 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-accent/50 transition-colors"
               >
                 <RadioGroupItem
                   value={option.id}
@@ -282,19 +282,22 @@ const TestPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Timer />
-
       <div className="container mx-auto px-4 py-16 max-w-4xl">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold">{assignment.title}</h1>
+          <h1 className="text-2xl font-bold text-foreground flex items-center justify-between">
+            {assignment.title}
+            <Timer />
+          </h1>
           <p className="text-muted-foreground">
             Question {currentQuestionIndex + 1} of {assignment.questions.length}
           </p>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-border/50 p-6 mb-6">
+        <div className="bg-card rounded-xl shadow-sm border border-border/50 p-6 mb-6">
           <div className="mb-6">
-            <h2 className="text-xl font-medium mb-6">{currentQuestion.text}</h2>
+            <h2 className="text-xl font-medium text-foreground mb-6">
+              {currentQuestion.text}
+            </h2>
             {renderQuestionInput()}
           </div>
 
@@ -316,10 +319,7 @@ const TestPage = () => {
             {answeredQuestions} of {assignment.questions.length} questions
             answered
           </div>
-          <Button
-            onClick={handleOpenSubmitModal}
-            className="bg-primary hover:bg-primary/90"
-          >
+          <Button onClick={handleOpenSubmitModal} variant="default">
             Submit Test
           </Button>
         </div>

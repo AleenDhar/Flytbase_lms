@@ -45,9 +45,9 @@ const TestNavigation: React.FC<TestNavigationProps> = ({
         variant="outline"
         onClick={onPrevious}
         disabled={isFirstQuestion}
-        className="group"
+        className="group cursor-pointer"
       >
-        <ChevronLeft className="mr-1 h-4 w-4 transition-transform group-hover:-translate-x-1" />
+        <ChevronLeft className="  mr-1 h-4 w-4 transition-transform group-hover:-translate-x-1" />
         Previous
       </Button>
 
@@ -59,7 +59,12 @@ const TestNavigation: React.FC<TestNavigationProps> = ({
           </div>
         )}
 
-        <Button variant="ghost" onClick={handleSave} size="sm">
+        <Button
+          variant="ghost"
+          onClick={handleSave}
+          size="sm"
+          className="cursor-pointer"
+        >
           <Save className="mr-1 h-4 w-4" />
           Save
         </Button>
@@ -69,7 +74,7 @@ const TestNavigation: React.FC<TestNavigationProps> = ({
             onClick={onSubmit}
             variant="default"
             size="sm"
-            className="bg-primary hover:bg-primary/90"
+            className="bg-primary hover:bg-primary/90 cursor-pointer"
           >
             <Send className="mr-1 h-4 w-4" />
             Submit Test
@@ -81,10 +86,10 @@ const TestNavigation: React.FC<TestNavigationProps> = ({
         variant={isLastQuestion ? "outline" : "default"}
         onClick={onNext}
         disabled={isLastQuestion}
-        className="group"
+        className="group cursor-pointer"
       >
         Next
-        <ChevronRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" />
+        <ChevronRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1 cursor-pointer" />
       </Button>
     </div>
   );

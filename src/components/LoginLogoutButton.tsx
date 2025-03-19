@@ -21,6 +21,7 @@ const LoginButton = () => {
   if (user) {
     return (
       <Button
+        className="cursor-pointer h-8 rounded-sm"
         onClick={() => {
           signout();
           setUser(null);
@@ -32,6 +33,7 @@ const LoginButton = () => {
   }
   return (
     <Button
+      className="cursor-pointer h-8 rounded-sm"
       variant="outline"
       onClick={() => {
         router.push("/login");

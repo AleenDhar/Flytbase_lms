@@ -45,7 +45,7 @@ const Timer: React.FC = () => {
   }
 
   return (
-    <div className="fixed top-4 right-4 z-10 glass-panel px-4 py-3 rounded-full shadow-md flex flex-col items-center justify-center animate-fade-in">
+    <div className="border-white right-4 z-10 glass-panel px-4 py-3 rounded-full shadow-md flex flex-col items-center justify-center animate-fade-in">
       <div className="flex items-center space-x-2 mb-1">
         <Clock
           className={`h-4 w-4 ${

@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { User } from "lucide-react";
 
 const UserGreetText = () => {
   const router = useRouter();
@@ -43,16 +44,17 @@ const UserGreetText = () => {
           <DropdownMenuTrigger className="cursor-pointer">
             <Avatar>
               <AvatarImage src={user.user_metadata.avatar_url ?? "user"} />
-              <AvatarFallback>CN</AvatarFallback>
+              <AvatarFallback className="cursor-pointer text-xs">
+                <User />
+              </AvatarFallback>
             </Avatar>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem>Courses</DropdownMenuItem>
-            <DropdownMenuItem>Billing</DropdownMenuItem>
-            <DropdownMenuItem>Team</DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer">
+            <DropdownMenuItem> Assignments</DropdownMenuItem>
+            <DropdownMenuItem>
               <LoginButton />
             </DropdownMenuItem>
           </DropdownMenuContent>

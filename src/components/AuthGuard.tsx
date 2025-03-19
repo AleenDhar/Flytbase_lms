@@ -14,7 +14,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     const fetchUser = async () => {
       const supabase = createClient();
       const { data } = await supabase.auth.getUser();
-      console.log(data.user);
+      // console.log(data.user);
       if (!data.user) {
         router.replace("/login"); // Redirect to login page if no user
       } else {
