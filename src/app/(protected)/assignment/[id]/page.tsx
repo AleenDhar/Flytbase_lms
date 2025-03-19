@@ -16,17 +16,17 @@ import { toast } from "sonner";
 import { NextPage } from "next";
 import Link from "next/link";
 import { log } from "node:console";
-
-type Assignment = {
-  id: string;
-  title: string;
-  description: string;
-  timeLimit: number;
-  category: string;
-  difficulty: "easy" | "medium" | "hard";
-  questions: { id: string; question: string }[];
-  thumbnail?: string;
-};
+import type { Assignment } from "@/types";
+// type Assignment = {
+//   id: string;
+//   title: string;
+//   description: string;
+//   timeLimit: number;
+//   category: string;
+//   difficulty: "easy" | "medium" | "hard";
+//   questions: { id: string; question: string }[];
+//   thumbnail?: string;
+// };
 
 const AssignmentDetail: NextPage = () => {
   const params = useParams();
