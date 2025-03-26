@@ -793,14 +793,15 @@ const TestPage = () => {
             </div>
 
             {/* Desktop timer display */}
-
-            <Button
-              onClick={() => setSidebarOpen(true)}
-              size="icon"
-              className="h-12 w-12 rounded-full shadow-lg flex items-center justify-center"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
+            {!sidebarOpen && (
+              <Button
+                onClick={() => setSidebarOpen(true)}
+                size="icon"
+                className="h-12 w-12 rounded-full shadow-lg flex items-center justify-center"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+            )}
           </div>
 
           {/* Question card */}
