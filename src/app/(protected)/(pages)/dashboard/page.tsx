@@ -2,7 +2,7 @@
 import { createClient } from "@/utils/supabase/client";
 import React, { useEffect, useState } from "react";
 
-const page = () => {
+const Page = () => {
   const supabase = createClient();
   const [user, setUser] = useState<any>(null);
   useEffect(() => {
@@ -21,4 +21,4 @@ const page = () => {
   // return <div>hi</div>;
 };
 
-export default page;
+export default Page;
