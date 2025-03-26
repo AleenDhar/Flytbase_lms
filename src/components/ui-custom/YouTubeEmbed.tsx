@@ -1,48 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 
-// YouTube API types
 declare global {
   interface Window {
-    YT: {
-      Player: new (
-        elementId: HTMLElement | string,
-        config: {
-          videoId: string;
-          playerVars?: {
-            autoplay?: number;
-            modestbranding?: number;
-            rel?: number;
-            origin?: string;
-            [key: string]: any;
-          };
-          events?: {
-            onReady?: (event: any) => void;
-            onStateChange?: (event: any) => void;
-            [key: string]: any;
-          };
-        }
-      ) => {
-        destroy: () => void;
-        getCurrentTime: () => number;
-        getDuration: () => number;
-        [key: string]: any;
-      };
-      PlayerState: {
-        ENDED: number;
-        PLAYING: number;
-        PAUSED: number;
-        BUFFERING: number;
-        CUED: number;
-        UNSTARTED: number;
-      };
-    };
+    YT: any;
     onYouTubeIframeAPIReady: () => void;
   }
 }
 
 interface YouTubeEmbedProps {
   videoId: string;
-  title?: string;
   autoplay?: boolean;
   onVideoEnd?: () => void;
   onVideoProgress?: (progress: number) => void;
@@ -51,45 +17,14 @@ interface YouTubeEmbedProps {
 
 const YouTubeEmbed: React.FC<YouTubeEmbedProps> = ({
   videoId,
-  title = "YouTube video player",
   autoplay = false,
   onVideoEnd,
   onVideoProgress,
   className = "",
 }) => {
-  const [isLoading, setIsLoading] = useState(true);
   const [player, setPlayer] = useState<any>(null);
-  const [progressInterval, setProgressIntervalId] = useState<number | null>(
-    null
-  );
   const playerRef = useRef<HTMLDivElement>(null);
-
-  // Load YouTube API
-  useEffect(() => {
-    // Only load the API once
-    if (!window.YT) {
-      const tag = document.createElement("script");
-      tag.src = "https://www.youtube.com/iframe_api";
-
-      const firstScriptTag = document.getElementsByTagName("script")[0];
-      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
-
-      window.onYouTubeIframeAPIReady = initializePlayer;
-    } else {
-      initializePlayer();
-    }
-
-    return () => {
-      if (progressInterval) {
-        window.clearInterval(progressInterval);
-      }
-
-      // Clean up player
-      if (player) {
-        player.destroy();
-      }
-    };
-  }, [videoId]);
+  const progressInterval = useRef<NodeJS.Timeout | null>(null);
 
   const initializePlayer = () => {
     if (!playerRef.current) return;
@@ -111,12 +46,13 @@ const YouTubeEmbed: React.FC<YouTubeEmbedProps> = ({
     setPlayer(newPlayer);
   };
 
-  const handlePlayerReady = () => {
-    setIsLoading(false);
+  const handlePlayerReady = (event: any) => {
+    if (autoplay) {
+      event.target.playVideo();
+    }
 
-    // If we need to track progress, set up an interval
-    if (onVideoProgress && player) {
-      const interval = window.setInterval(() => {
+    if (onVideoProgress) {
+      progressInterval.current = setInterval(() => {
         if (player && typeof player.getCurrentTime === "function") {
           const currentTime = player.getCurrentTime();
           const duration = player.getDuration();
@@ -124,8 +60,6 @@ const YouTubeEmbed: React.FC<YouTubeEmbedProps> = ({
           onVideoProgress(progressPercent);
         }
       }, 1000);
-
-      setProgressIntervalId(interval);
     }
   };
 
@@ -135,22 +69,40 @@ const YouTubeEmbed: React.FC<YouTubeEmbedProps> = ({
     }
   };
 
-  return (
-    // <div className={`relative w-full overflow-hidden rounded-xl ${className}`}>
-    //   {isLoading && (
-    //     <div className="absolute inset-0 flex items-center justify-center bg-black/5 backdrop-blur-sm">
-    //       <div className="loading-dots">
-    //         <div></div>
-    //         <div></div>
-    //         <div></div>
-    //       </div>
-    //     </div>
-    //   )}
+  useEffect(() => {
+    if (!window.YT) {
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      tag.async = true;
+      document.body.appendChild(tag);
+      window.onYouTubeIframeAPIReady = initializePlayer;
+    } else {
+      initializePlayer();
+    }
 
-    <div className="w-full h-full">
+    return () => {
+      if (progressInterval.current) {
+        clearInterval(progressInterval.current);
+      }
+      if (player && typeof player.destroy === "function") {
+        player.destroy();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (player && typeof player.cueVideoById === "function") {
+      player.cueVideoById(videoId);
+      if (autoplay && typeof player.playVideo === "function") {
+        setTimeout(() => player.playVideo(), 500);
+      }
+    }
+  }, [videoId, player, autoplay]);
+
+  return (
+    <div className={`w-full h-full ${className}`}>
       <div ref={playerRef} className="w-full h-full" />
     </div>
-    // </div>
   );
 };
 

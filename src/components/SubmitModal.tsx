@@ -51,14 +51,17 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
           </div>
         )}
 
-        <DialogFooter className="flex flex-col sm:flex-row-reverse gap-2 sm:gap-0">
-          <Button onClick={onSubmit} className="w-full sm:w-auto">
+        <DialogFooter className="flex flex-col sm:flex-row-reverse gap-2 ">
+          <Button
+            onClick={onSubmit}
+            className="w-full sm:w-auto cursor-pointer"
+          >
             Submit Test
           </Button>
           <Button
             variant="outline"
             onClick={onCancel}
-            className="w-full sm:w-auto"
+            className="w-full sm:w-auto cursor-pointer"
           >
             Continue Working
           </Button>

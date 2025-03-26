@@ -10,20 +10,31 @@ import {
   BarChart,
   Menu,
   X,
+  Home,
+  BookText,
+  GraduationCap,
+  LogOut,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { ModeToggle } from "@/components/theme/mode-toggle";
 import UserGreetText from "@/components/UserGreetText";
 import LoginButton from "@/components/LoginLogoutButton";
-import React, { ReactNode } from "react"; // Import ReactNode to fix JSX error
+import React, { ReactNode } from "react";
+import { useTheme } from "next-themes";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/utils/supabase/client";
+
 interface LayoutProps {
   children: React.ReactNode;
 }
+
 // Define types
 type Feature = {
   id: number;
   title: string;
   description: string;
-  icon: ReactNode; // Fix for JSX.Element error
+  icon: ReactNode;
 };
 
 type Testimonial = {
@@ -43,12 +54,28 @@ type PricingPlan = {
   features: string[];
   popular: boolean;
 };
+
 const Layout = ({ children }: LayoutProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeFeature, setActiveFeature] = useState(1);
+  const [mounted, setMounted] = useState(false);
+  const { theme, setTheme } = useTheme();
+  const router = useRouter();
+  const supabase = createClient();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // For mobile view determination
+  const [isMobile, setIsMobile] = useState(false);
 
   // For animation purposes
   const [isVisible, setIsVisible] = useState(false);
+
+  // Check if component is mounted to avoid hydration issues with theme
+  useEffect(() => {
+    setMounted(true);
+    // Initial check for mobile view
+    setIsMobile(window.innerWidth < 768);
+  }, []);
 
   useEffect(() => {
     setIsVisible(true);
@@ -60,6 +87,87 @@ const Layout = ({ children }: LayoutProps) => {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Close mobile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (
+        isMenuOpen &&
+        !target.closest("#mobile-menu") &&
+        !target.closest("#menu-button")
+      ) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isMenuOpen]);
+
+  // Also close menu when window is resized to desktop size
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+
+      if (!mobile) {
+        // md breakpoint in Tailwind
+        setIsMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  // Toggle theme handler for mobile view
+  const toggleTheme = () => {
+    setTheme(theme === "dark" ? "light" : "dark");
+  };
+
+  // Logout handler with Supabase
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      setIsMenuOpen(false);
+
+      // Sign out from Supabase
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        console.error("Error logging out:", error.message);
+        throw error;
+      }
+
+      // Redirect to home page after successful logout
+      router.push("/");
+
+      // Optional: Clear any local storage or cookies if needed
+      // localStorage.removeItem('some-key');
+    } catch (error) {
+      console.error("Logout failed:", error);
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
+  // Get logo based on theme and screen size
+  const getLogo = () => {
+    if (!mounted) return "/lovable-uploads/logo.png"; // Default before hydration
+
+    if (isMobile) {
+      return theme === "dark"
+        ? "/lovable-uploads/logo.png"
+        : "/lovable-uploads/logo.png";
+    }
+
+    return "/lovable-uploads/logo.png";
+  };
 
   // Sample data
   const features: Feature[] = [
@@ -167,21 +275,19 @@ const Layout = ({ children }: LayoutProps) => {
       popular: false,
     },
   ];
+
   return (
-    <div className="min-h-screen flex flex-col ">
+    <div className="min-h-screen flex flex-col">
       <nav className="bg-card sticky top-0 z-50 shadow-sm">
-        <div className="mx-10  px-4 sm:px-6 lg:px-8 ">
+        <div className="mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
           <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              {/* <span className="text-2xl text-primary font-extrabold"> */}
-              {/* Flytbase Academy */}
+            <Link className="flex items-center" href="/">
               <img
-                src="/flybase_academy_logo.svg"
-                alt="hello"
-                className="h-10 w-72"
+                src={getLogo()}
+                alt="Flytbase Academy"
+                className="h-10 w-auto sm:w-auto max-w-[72px] sm:max-w-[200px] md:max-w-[280px] object-contain"
               />
-              {/* </span> */}
-            </div>
+            </Link>
 
             {/* Desktop navigation */}
             <div className="hidden md:flex items-center space-x-8">
@@ -207,8 +313,10 @@ const Layout = ({ children }: LayoutProps) => {
             {/* Mobile menu button */}
             <div className="md:hidden flex items-center">
               <button
+                id="menu-button"
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="text-foreground hover:text-primary focus:outline-none"
+                className="text-foreground hover:text-primary focus:outline-none p-2 rounded-md transition-colors"
+                aria-label="Toggle menu"
               >
                 {isMenuOpen ? (
                   <X className="w-6 h-6" />
@@ -222,33 +330,63 @@ const Layout = ({ children }: LayoutProps) => {
 
         {/* Mobile menu */}
         {isMenuOpen && (
-          <div className="md:hidden bg-card pt-2 pb-4 px-4">
-            <div className="flex flex-col space-y-3">
-              <Link href="#features" onClick={() => setIsMenuOpen(false)}>
-                <span className="text-foreground hover:text-primary transition-colors duration-300 block py-2">
-                  Features
+          <div
+            id="mobile-menu"
+            className="md:hidden bg-card py-4 px-4 shadow-lg border-t border-border animate-in slide-in-from-top duration-300"
+          >
+            <div className="space-y-1">
+              {/* User greeting removed from mobile view as requested */}
+
+              <Link href="/dashboard" onClick={() => setIsMenuOpen(false)}>
+                <span className="flex items-center gap-2 text-foreground hover:text-primary hover:bg-accent/50 transition-colors duration-300 py-3 px-3 rounded-md">
+                  <Home className="w-5 h-5" />
+                  <span>Dashboard</span>
                 </span>
               </Link>
-              <Link href="#testimonials" onClick={() => setIsMenuOpen(false)}>
-                <span className="text-foreground hover:text-primary transition-colors duration-300 block py-2">
-                  Testimonials
+
+              <Link href="/assignment" onClick={() => setIsMenuOpen(false)}>
+                <span className="flex items-center gap-2 text-foreground hover:text-primary hover:bg-accent/50 transition-colors duration-300 py-3 px-3 rounded-md">
+                  <BookText className="w-5 h-5" />
+                  <span>Assignments</span>
                 </span>
               </Link>
-              <Link href="#pricing" onClick={() => setIsMenuOpen(false)}>
-                <span className="text-foreground hover:text-primary transition-colors duration-300 block py-2">
-                  Pricing
+
+              <Link href="/course" onClick={() => setIsMenuOpen(false)}>
+                <span className="flex items-center gap-2 text-foreground hover:text-primary hover:bg-accent/50 transition-colors duration-300 py-3 px-3 rounded-md">
+                  <GraduationCap className="w-5 h-5" />
+                  <span>Courses</span>
                 </span>
               </Link>
-              <Link href="/login" onClick={() => setIsMenuOpen(false)}>
-                <span className="text-foreground hover:text-primary transition-colors duration-300 block py-2">
-                  Login
+
+              {/* Custom theme toggle for mobile that works consistently */}
+              <button
+                onClick={toggleTheme}
+                className="w-full flex items-center justify-between text-foreground hover:bg-accent/50 transition-colors duration-300 py-3 px-3 rounded-md"
+              >
+                <div className="flex items-center gap-2">
+                  {theme === "dark" ? (
+                    <Moon className="w-5 h-5" />
+                  ) : (
+                    <Sun className="w-5 h-5" />
+                  )}
+                  <span>Theme</span>
+                </div>
+                <span className="text-sm font-medium">
+                  {theme === "dark" ? "Dark" : "Light"}
                 </span>
-              </Link>
-              <Link href="/signup" onClick={() => setIsMenuOpen(false)}>
-                <span className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors duration-300 inline-block">
-                  Get Started
-                </span>
-              </Link>
+              </button>
+
+              <div className="pt-2 mt-2 border-t border-border">
+                {/* Functional logout button */}
+                <button
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                  className="w-full flex items-center gap-2 text-destructive hover:bg-destructive/10 transition-colors duration-300 py-3 px-3 rounded-md"
+                >
+                  <LogOut className="w-5 h-5" />
+                  <span>{isLoggingOut ? "Logging out..." : "Logout"}</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -259,7 +397,7 @@ const Layout = ({ children }: LayoutProps) => {
       <footer className="border-t py-6 bg-muted/30">
         <div className="container max-w-6xl mx-auto px-4 text-center">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Flytbase LMS. All rights reserved.
+            © {new Date().getFullYear()} Flytbase Academy. All rights reserved.
           </p>
         </div>
       </footer>

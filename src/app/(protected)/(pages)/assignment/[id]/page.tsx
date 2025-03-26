@@ -9,52 +9,108 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { assignments } from "@/data/assignments";
 import { TestProvider, useTest } from "@/contexts/TestContext";
-import { Clock, BarChart, ChevronLeft, Play } from "lucide-react";
+import { Clock, BarChart, ChevronLeft, Play, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { NextPage } from "next";
 import Link from "next/link";
-import { log } from "node:console";
-import type { Assignment } from "@/types";
-// type Assignment = {
-//   id: string;
-//   title: string;
-//   description: string;
-//   timeLimit: number;
-//   category: string;
-//   difficulty: "easy" | "medium" | "hard";
-//   questions: { id: string; question: string }[];
-//   thumbnail?: string;
-// };
+import { createClient } from "@/utils/supabase/client";
+
+// Inline interface for the assignment (assessment) detail.
+interface AssignmentDetailData {
+  id: number;
+  title: string;
+  description: string;
+  thumbnail: string;
+  timeLimit: number | null; // from time_limit
+  difficulty: string | null; // from difficulty
+  category: string | null; // from category
+  courseId: number; // from course_id
+  createdAt: string; // from created_at
+  questionCount: number; // Count of questions for this assessment
+}
 
 const AssignmentDetail: NextPage = () => {
   const params = useParams();
   const id = params?.id as string | undefined;
   const router = useRouter();
   const { startTest } = useTest();
-  const [assignment, setAssignment] = useState<Assignment | undefined>(
-    assignments.find((a) => a.id === id) as Assignment | undefined
-  );
-
+  const [assignment, setAssignment] = useState<
+    AssignmentDetailData | undefined
+  >(undefined);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Fetch the assignment detail from Supabase based on the id from the route
   useEffect(() => {
-    if (!assignment && id) {
-      toast.error("Assignment not found", {
-        description: "The assignment you're looking for doesn't exist.",
-      });
-    }
-  }, [assignment, id]);
+    const fetchAssignment = async () => {
+      if (!id) return;
 
+      try {
+        const supabase = createClient();
+
+        // Fetch the assessment details
+        const { data: assessmentData, error: assessmentError } = await supabase
+          .from("assessments")
+          .select("*")
+          .eq("id", Number(id))
+          .single();
+
+        if (assessmentError) {
+          toast.error("Assignment not found", {
+            description: "The assignment you're looking for doesn't exist.",
+          });
+          return;
+        }
+
+        // Get the count of questions for this assessment
+        const { count: questionCount, error: questionCountError } =
+          await supabase
+            .from("questions")
+            .select("*", { count: "exact", head: true })
+            .eq("assessment_id", Number(id));
+
+        if (questionCountError) {
+          console.error("Error fetching question count:", questionCountError);
+        }
+
+        if (assessmentData) {
+          // Map snake_case fields to camelCase
+          const mappedAssignment: AssignmentDetailData = {
+            id: assessmentData.id,
+            title: assessmentData.title,
+            description: assessmentData.description,
+            thumbnail: assessmentData.thumbnail,
+            timeLimit: assessmentData.time_limit,
+            difficulty: assessmentData.difficulty,
+            category: assessmentData.category,
+            courseId: assessmentData.course_id,
+            createdAt: assessmentData.created_at,
+            questionCount: questionCount || 0,
+          };
+          setAssignment(mappedAssignment);
+        }
+      } catch (error) {
+        console.error("Error fetching assignment:", error);
+        toast.error("Error loading assignment", {
+          description: "There was a problem loading the assignment details.",
+        });
+      }
+    };
+
+    fetchAssignment();
+  }, [id]);
+
+  // Show nothing if assignment not found
   if (!assignment) {
     return null;
   }
 
   const handleStartTest = () => {
     setIsLoading(true);
+
+    // Set a brief timeout to show loading state
     setTimeout(() => {
-      startTest(assignment.id, assignment.timeLimit);
+      startTest(String(assignment.id), assignment.timeLimit);
       router.push(`/test/${assignment.id}`);
     }, 800);
   };
@@ -102,12 +158,12 @@ const AssignmentDetail: NextPage = () => {
                 <div>
                   <div className="flex gap-2 mb-2">
                     <span className="text-xs font-medium px-2 py-1 rounded-full bg-secondary text-secondary-foreground">
-                      {assignment.category}
+                      {assignment.category || "General"}
                     </span>
                     <span
                       className={`text-xs font-medium px-2 py-1 rounded-full text-white ${getDifficultyColor()}`}
                     >
-                      {assignment.difficulty}
+                      {assignment.difficulty || "N/A"}
                     </span>
                   </div>
                   <CardTitle className="text-2xl">{assignment.title}</CardTitle>
@@ -119,12 +175,17 @@ const AssignmentDetail: NextPage = () => {
                 <Button
                   onClick={handleStartTest}
                   className="cursor-pointer w-full md:w-auto shadow-sm min-w-36 py-6 subtle-transitions"
-                  disabled={isLoading}
+                  disabled={isLoading || assignment.questionCount === 0}
                 >
                   {isLoading ? (
                     <div className="flex items-center">
                       <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                       Preparing Test...
+                    </div>
+                  ) : assignment.questionCount === 0 ? (
+                    <div className="flex items-center">
+                      <AlertCircle className="mr-2 h-4 w-4" />
+                      No Questions Available
                     </div>
                   ) : (
                     <div className="flex items-center">
@@ -143,7 +204,11 @@ const AssignmentDetail: NextPage = () => {
                     <Clock className="h-5 w-5" />
                     <div>
                       <p className="font-medium text-foreground">Time Limit</p>
-                      <p className="text-sm">{assignment.timeLimit} minutes</p>
+                      <p className="text-sm">
+                        {assignment.timeLimit
+                          ? `${assignment.timeLimit} minutes`
+                          : "No limit"}
+                      </p>
                     </div>
                   </div>
 
@@ -152,7 +217,7 @@ const AssignmentDetail: NextPage = () => {
                     <div>
                       <p className="font-medium text-foreground">Questions</p>
                       <p className="text-sm">
-                        {assignment.questions.length} questions to complete
+                        {assignment.questionCount} questions to complete
                       </p>
                     </div>
                   </div>
@@ -162,8 +227,11 @@ const AssignmentDetail: NextPage = () => {
                   <h3 className="font-medium mb-2">Test Instructions</h3>
                   <ul className="text-sm space-y-2 text-muted-foreground">
                     <li>
-                      • You will have {assignment.timeLimit} minutes to complete
-                      this test.
+                      • You will have{" "}
+                      {assignment.timeLimit
+                        ? `${assignment.timeLimit} minutes`
+                        : "no time limit"}{" "}
+                      to complete this test.
                     </li>
                     <li>
                       • The test will automatically submit when the time is up.

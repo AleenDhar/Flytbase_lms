@@ -31,9 +31,5 @@ import { TestProvider } from "@/contexts/TestContext";
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  return (
-    <AuthGuard>
-      <TestProvider>{children}</TestProvider>
-    </AuthGuard>
-  );
+  return <Layout>{children}</Layout>;
 }

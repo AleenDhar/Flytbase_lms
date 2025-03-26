@@ -90,7 +90,7 @@ export async function signInWithGoogle() {
       },
     },
   });
-  console.log(data);
+  // console.log(data);
   if (error) {
     console.log(error);
     redirect("/error");
