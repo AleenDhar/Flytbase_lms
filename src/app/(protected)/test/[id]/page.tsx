@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useTest } from "@/contexts/TestContext";
 import Timer from "@/components/Timer";
@@ -21,6 +21,7 @@ import {
   Flag,
   X,
   Menu,
+  Save,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -55,6 +56,7 @@ interface Assignment {
 
 const TestPage = () => {
   const { id } = useParams<{ id: string }>();
+  const attemptCreatedRef = useRef(false);
   const router = useRouter();
   const supabase = createClient();
   const { testState, setAnswer, submitTest, clearTest } = useTest();
@@ -69,8 +71,201 @@ const TestPage = () => {
   const [reviewMarks, setReviewMarks] = useState<Record<string, boolean>>({}); // Track questions marked for review
   const [sidebarOpen, setSidebarOpen] = useState(false); // Start closed on mobile
 
+  // Add state to track current attempt and saving state
+  const [attemptId, setAttemptId] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Get the current question
   const currentQuestion = assignment?.questions[currentQuestionIndex];
+
+  // Create attempt record when test starts
+  const createAttemptRecord = async () => {
+    if (!user?.id || !assignment) return;
+
+    try {
+      setIsSaving(true);
+
+      // Check for existing attempts to determine attempt number
+      const { data: existingAttempts, error: attemptError } = await supabase
+        .from("assessment_attempts")
+        .select("attempt_number")
+        .eq("user_id", user.id)
+        .eq("assessment_id", Number(id))
+        .order("attempt_number", { ascending: false })
+        .limit(1);
+
+      if (attemptError) {
+        console.error("Error checking existing attempts:", attemptError);
+        return;
+      }
+
+      const attemptNumber =
+        existingAttempts && existingAttempts.length > 0
+          ? existingAttempts[0].attempt_number + 1
+          : 1;
+
+      // Create the attempt record with "in_progress" status
+      const startTime = new Date().toISOString();
+
+      const { data: attemptData, error: insertAttemptError } = await supabase
+        .from("assessment_attempts")
+        .insert({
+          user_id: user.id,
+          assessment_id: Number(id),
+          attempt_number: attemptNumber,
+          started_at: startTime,
+          status: "in_progress", // Mark as in progress until submitted
+        })
+        .select()
+        .single();
+
+      if (insertAttemptError) {
+        console.error("Error creating attempt record:", insertAttemptError);
+        toast.error("Failed to start test", {
+          description: "Please try refreshing the page.",
+        });
+        return;
+      }
+
+      // Store the attempt ID for later use
+      setAttemptId(attemptData.id);
+      console.log("Created attempt with ID:", attemptData.id);
+
+      // After creating the attempt, load any existing answers
+      await loadExistingAnswers(attemptData.id);
+    } catch (error) {
+      console.error("Error creating attempt:", error);
+      toast.error("Failed to start test", {
+        description: "Please try refreshing the page.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Load existing answers for this attempt (in case of browser refresh)
+  const loadExistingAnswers = async (currentAttemptId: number) => {
+    try {
+      const { data: existingAnswers, error } = await supabase
+        .from("user_answers")
+        .select("*")
+        .eq("attempt_id", currentAttemptId)
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error("Error loading existing answers:", error);
+        return;
+      }
+
+      if (existingAnswers && existingAnswers.length > 0) {
+        // Create a temporary object to hold answers
+        const answersToRestore: Record<string, string | string[]> = {};
+
+        // Process each answer and add to our local state
+        existingAnswers.forEach((answer) => {
+          if (answer.selected_option_id) {
+            // For multiple choice
+            answersToRestore[answer.question_id] = answer.selected_option_id;
+          } else if (answer.essay_text) {
+            // For essay questions
+            answersToRestore[answer.question_id] = answer.essay_text;
+          }
+        });
+
+        // Restore all answers at once by updating testState
+        Object.entries(answersToRestore).forEach(([questionId, answer]) => {
+          setAnswer(questionId, answer);
+        });
+
+        // Also restore review marks if they exist
+        // (This would require a separate table or field in your DB)
+      }
+    } catch (error) {
+      console.error("Error loading existing answers:", error);
+    }
+  };
+
+  // Save or update an answer in the database
+  const saveAnswerToDatabase = async (
+    questionId: string,
+    answer: string | string[]
+  ) => {
+    console.log("attempt:", attemptId);
+    console.log("questionid:", questionId);
+    console.log("answer:", answer);
+    if (!attemptId || !user?.id || !questionId) return;
+
+    try {
+      setIsSaving(true);
+
+      // Determine if this is a multiple-choice or essay question
+      const isMultipleChoice = typeof answer === "string";
+
+      // Check if this answer already exists
+      const { data: existingAnswer, error: checkError } = await supabase
+        .from("user_answers")
+        .select("*")
+        .eq("question_id", questionId)
+        .eq("attempt_id", attemptId)
+        .eq("user_id", user.id);
+
+      if (checkError) {
+        console.error("Error checking existing answer:", checkError);
+        return;
+      }
+
+      if (existingAnswer && existingAnswer.length > 0) {
+        // Update existing answer
+        const { error: updateError } = await supabase
+          .from("user_answers")
+          .update({
+            selected_option_id: isMultipleChoice ? answer : null,
+            essay_text: !isMultipleChoice ? answer : null,
+          })
+          .eq("id", existingAnswer[0].id);
+
+        if (updateError) {
+          console.error("Error updating answer:", updateError);
+          toast.error("Failed to save answer", {
+            description: "Your answer may not be saved.",
+          });
+        }
+      } else {
+        // Insert new answer
+        const { error: insertError } = await supabase
+          .from("user_answers")
+          .insert({
+            question_id: questionId,
+            user_id: user.id,
+            attempt_id: attemptId,
+            selected_option_id: isMultipleChoice ? answer : null,
+            essay_text: !isMultipleChoice ? answer : null,
+            created_at: new Date().toISOString(),
+          });
+
+        if (insertError) {
+          console.error("Error inserting answer:", insertError);
+          toast.error("Failed to save answer", {
+            description: "Your answer may not be saved.",
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error saving answer:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Handle saving answer to both context and database
+  const handleSetAnswer = (questionId: string, answer: string | string[]) => {
+    // First, update local state through the context
+    setAnswer(questionId, answer);
+
+    // Then save to database
+    saveAnswerToDatabase(questionId, answer);
+  };
 
   // Handle sidebar based on screen size
   useEffect(() => {
@@ -92,6 +287,20 @@ const TestPage = () => {
     // Cleanup
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  // Create attempt when test starts
+  useEffect(() => {
+    if (
+      user &&
+      assignment &&
+      testState.isActive &&
+      !attemptId &&
+      !attemptCreatedRef.current
+    ) {
+      attemptCreatedRef.current = true; // Mark attempt creation as initiated
+      createAttemptRecord();
+    }
+  }, [user, assignment, testState.isActive, attemptId]);
 
   // Fetch user data on component mount
   useEffect(() => {
@@ -298,6 +507,15 @@ const TestPage = () => {
     }
   }, [currentQuestion, testState.answers]);
 
+  // Cleanup any pending save operations on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -335,7 +553,7 @@ const TestPage = () => {
 
     // Save current answer if available
     if (localAnswer) {
-      setAnswer(currentQuestion.id, localAnswer);
+      handleSetAnswer(currentQuestion.id, localAnswer);
     }
 
     toast.success(
@@ -351,7 +569,7 @@ const TestPage = () => {
     if (currentQuestionIndex > 0) {
       // Save current answer before navigating
       if (currentQuestion && localAnswer) {
-        setAnswer(currentQuestion.id, localAnswer);
+        handleSetAnswer(currentQuestion.id, localAnswer);
       }
       setCurrentQuestionIndex(currentQuestionIndex - 1);
     }
@@ -363,7 +581,7 @@ const TestPage = () => {
     if (currentQuestionIndex < assignment.questions.length - 1) {
       // Save current answer before navigating
       if (currentQuestion && localAnswer) {
-        setAnswer(currentQuestion.id, localAnswer);
+        handleSetAnswer(currentQuestion.id, localAnswer);
       }
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     }
@@ -373,7 +591,7 @@ const TestPage = () => {
     if (submitting) return;
 
     if (currentQuestion && localAnswer) {
-      setAnswer(currentQuestion.id, localAnswer);
+      handleSetAnswer(currentQuestion.id, localAnswer);
       toast.success("Answer saved", {
         description: "Your answer has been saved.",
       });
@@ -382,6 +600,20 @@ const TestPage = () => {
 
   const handleAnswerChange = (value: string | string[]) => {
     setLocalAnswer(value);
+
+    // For multiple choice, save immediately
+    if (currentQuestion && typeof value === "string") {
+      handleSetAnswer(currentQuestion.id, value);
+    } else if (currentQuestion) {
+      // For essay/text responses, use debouncing to avoid saving on every keystroke
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+
+      saveTimeoutRef.current = setTimeout(() => {
+        handleSetAnswer(currentQuestion.id, value);
+      }, 1000); // Save after 1 second of inactivity
+    }
   };
 
   const handleOpenSubmitModal = () => {
@@ -389,7 +621,7 @@ const TestPage = () => {
 
     // Save current answer before showing submit modal
     if (currentQuestion && localAnswer) {
-      setAnswer(currentQuestion.id, localAnswer);
+      handleSetAnswer(currentQuestion.id, localAnswer);
     }
     setSubmitModalOpen(true);
   };
@@ -401,7 +633,7 @@ const TestPage = () => {
     try {
       // Save the current answer if any
       if (currentQuestion && localAnswer) {
-        setAnswer(currentQuestion.id, localAnswer);
+        handleSetAnswer(currentQuestion.id, localAnswer);
       }
 
       setSubmitting(true);
@@ -413,31 +645,7 @@ const TestPage = () => {
         email: user?.email || "no-email",
       };
 
-      // 1. First, check for existing attempts to determine attempt number
-      const { data: existingAttempts, error: attemptError } = await supabase
-        .from("assessment_attempts")
-        .select("attempt_number")
-        .eq("user_id", user?.id)
-        .eq("assessment_id", Number(id))
-        .order("attempt_number", { ascending: false })
-        .limit(1);
-
-      if (attemptError) {
-        console.error("Error checking existing attempts:", attemptError);
-      }
-
-      const attemptNumber =
-        existingAttempts && existingAttempts.length > 0
-          ? existingAttempts[0].attempt_number + 1
-          : 1;
-
-      // 2. Create the attempt record
-      const startTime = new Date(
-        Date.now() -
-          ((assignment.timeLimit || 0) * 60 * 1000 -
-            (testState.remainingTime || 0))
-      ).toISOString();
-
+      // Calculate finish time
       const finishTime = new Date().toISOString();
 
       // Calculate score for multiple-choice questions
@@ -471,45 +679,29 @@ const TestPage = () => {
           ? Math.round((correctAnswers / totalMultipleChoice) * 100)
           : null;
 
-      const { data: attemptData, error: insertAttemptError } = await supabase
+      // Update the existing attempt record instead of creating a new one
+      if (!attemptId) {
+        throw new Error("No active attempt found");
+      }
+
+      const { error: updateAttemptError } = await supabase
         .from("assessment_attempts")
-        .insert({
-          user_id: user?.id,
-          assessment_id: Number(id),
-          attempt_number: attemptNumber,
-          started_at: startTime,
+        .update({
           finished_at: finishTime,
           score: score,
           status: "completed",
         })
-        .select()
-        .single();
+        .eq("id", attemptId);
 
-      if (insertAttemptError) {
-        console.error("Error creating attempt record:", insertAttemptError);
-        throw new Error("Failed to record test attempt");
+      if (updateAttemptError) {
+        console.error("Error updating attempt record:", updateAttemptError);
+        throw new Error("Failed to update test attempt");
       }
-
-      // 3. Store the answers in the database, linked to the attempt
-      const promises = Object.entries(testState.answers).map(
-        ([questionId, answer]) => {
-          return supabase.from("user_answers").insert({
-            question_id: questionId,
-            user_id: user?.id,
-            attempt_id: attemptData.id, // Link to the newly created attempt
-            selected_option_id: typeof answer === "string" ? answer : null,
-            essay_text: typeof answer !== "string" ? answer : null,
-            created_at: new Date().toISOString(),
-          });
-        }
-      );
-
-      await Promise.all(promises);
 
       // 4. Create payload for API
       const payload = {
         testId: id,
-        attemptId: attemptData.id,
+        attemptId: attemptId,
         userDetails: userDetails,
         answers: testState.answers,
         timeSpent:
@@ -572,7 +764,7 @@ const TestPage = () => {
 
     // Save current answer before navigating
     if (currentQuestion && localAnswer) {
-      setAnswer(currentQuestion.id, localAnswer);
+      handleSetAnswer(currentQuestion.id, localAnswer);
     }
     setCurrentQuestionIndex(index);
 
@@ -754,19 +946,6 @@ const TestPage = () => {
 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
-      {/* Mobile sidebar toggle button */}
-      {/* {!sidebarOpen && (
-        <div className="fixed right-4 bottom-4 z-50">
-          <Button
-            onClick={() => setSidebarOpen(true)}
-            size="icon"
-            className="h-12 w-12 rounded-full shadow-lg flex items-center justify-center"
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-        </div>
-      )} */}
-
       {/* Main content */}
       <div className="p-3 sm:p-6 transition-all duration-300">
         <div className="max-w-3xl mx-auto">
@@ -789,10 +968,18 @@ const TestPage = () => {
                   <Clock className="h-3 w-3 text-primary" />
                   {formatTime(testState.remainingTime)}
                 </div>
+
+                {/* Show auto-save indicator */}
+                {isSaving && (
+                  <div className="flex items-center gap-1 bg-accent px-2 py-1 rounded text-xs animate-pulse">
+                    <Save className="h-3 w-3" />
+                    <span>Saving...</span>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Desktop timer display */}
+            {/* Sidebar toggle button */}
             {!sidebarOpen && (
               <Button
                 onClick={() => setSidebarOpen(true)}
@@ -953,7 +1140,6 @@ const TestPage = () => {
                 )
                   buttonClass =
                     "bg-rose-500 dark:bg-rose-600 hover:bg-rose-600 dark:hover:bg-rose-700 text-white border-transparent";
-                // else buttonClass = "bg-muted/50 hover:bg-muted";
 
                 // Add ring for current question
                 if (currentQuestionIndex === index) {
