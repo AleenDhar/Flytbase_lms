@@ -1070,17 +1070,35 @@ const TestPage = () => {
   };
 
   // Render certificate
+  // Updated renderCertificate function to use the gaming certificate design
   const renderCertificate = () => {
     if (!testResults || !assignment) return null;
 
+    // Format date for certificate
+    const formatDate = () => {
+      const date = new Date();
+      const day = date.getDate();
+      const month = date.toLocaleString("default", { month: "long" });
+      const year = date.getFullYear();
+
+      // Add suffix to day
+      let daySuffix = "th";
+      if (day > 3 && day < 21) daySuffix = "th";
+      else if (day % 10 === 1) daySuffix = "st";
+      else if (day % 10 === 2) daySuffix = "nd";
+      else if (day % 10 === 3) daySuffix = "rd";
+
+      return `${day}${daySuffix} day of ${month} of the year ${year}.`;
+    };
+
     return (
-      <div className="bg-white text-black p-8 rounded-lg max-w-3xl mx-auto">
+      <div className="relative max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-4">
           <div className="text-xs text-gray-500">
             Certificate ID: {certificateId}
           </div>
           <div className="flex gap-2">
-            <Button size="sm" variant="default">
+            <Button size="sm" variant="outline" onClick={() => window.print()}>
               <Download className="h-4 w-4 mr-1" /> Download
             </Button>
             <Button
@@ -1088,31 +1106,55 @@ const TestPage = () => {
               variant="destructive"
               onClick={() => setShowCertificate(false)}
             >
-              <X className="h-4 w-4 mr-1" />
+              <X className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
-        <div className="text-center border-b border-gray-200 pb-4">
-          <h1 className="text-3xl font-bold text-blue-600 mt-6">
-            FlytBase Certificate
-          </h1>
-        </div>
+        {/* Certificate with gaming theme */}
+        <div className="relative">
+          {/* Background image */}
+          <img
+            src="/game-certificate-bg.jpg"
+            alt="Certificate Background"
+            className="w-full h-auto rounded-lg"
+          />
 
-        <div className="py-8 space-y-3">
-          <div className="text-green-500">✓ Basic drone safety principles</div>
-          <div className="text-green-500">✓ Flight maneuvers and controls</div>
-          <div className="text-green-500">
-            ✓ Pre-flight checklist competency
-          </div>
-          <div className="text-green-500">✓ Emergency procedures</div>
-          <div className="text-green-500">✓ Airspace regulations awareness</div>
-          <div className="text-green-500">✓ Weather condition assessment</div>
-        </div>
+          {/* Content overlay */}
+          <div className="absolute inset-0 p-8 flex flex-col">
+            {/* Certificate header is already in the image */}
 
-        <div className="mt-12 mb-6 flex justify-end">
-          <div className="bg-gray-100 px-4 py-2 inline-block">
-            Verified by FlytBase Academy
+            {/* Certificate body */}
+            <div className="flex-1 flex flex-col mt-32">
+              {/* "This certificate is presented to" text is in the image */}
+
+              {/* Name */}
+              <div className="bg-gray-200 py-3 px-6 rounded mx-auto mb-8 text-center">
+                <h2 className="text-purple-900 font-bold uppercase text-4xl tracking-wider font-mono">
+                  {certificateFormData.fullName}
+                </h2>
+              </div>
+
+              {/* Date */}
+              <p className="text-white text-center text-xl mt-4">
+                Awarded this {formatDate()}
+              </p>
+            </div>
+
+            {/* Signatures */}
+            <div className="flex justify-between space-x-8">
+              <div className="text-center">
+                <div className="h-px bg-cyan-400 w-48 mb-2"></div>
+                <p className="text-white font-bold">Mr. Yael Amari</p>
+                <p className="text-white text-sm">Board of Directors</p>
+              </div>
+
+              <div className="text-center">
+                <div className="h-px bg-cyan-400 w-48 mb-2"></div>
+                <p className="text-white font-bold">Mr. Yael Amari</p>
+                <p className="text-white text-sm">Board of Directors</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
