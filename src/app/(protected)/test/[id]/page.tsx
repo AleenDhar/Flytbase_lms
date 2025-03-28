@@ -11,6 +11,14 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   CheckCircle2,
@@ -22,6 +30,10 @@ import {
   X,
   Menu,
   Save,
+  Award,
+  Download,
+  ArrowLeft,
+  AlertTriangle,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -54,6 +66,28 @@ interface Assignment {
   thumbnail?: string;
 }
 
+// Interface for test results
+interface TestResults {
+  score: number;
+  correctCount: number;
+  incorrectCount: number;
+  unansweredCount: number;
+  passed: boolean;
+  answers: {
+    question: Question;
+    optionText?: string;
+    answer: string | string[];
+    isCorrect: boolean;
+  }[];
+}
+
+// Interface for certificate form data
+interface CertificateFormData {
+  fullName: string;
+  designation: string;
+  email: string;
+}
+
 const TestPage = () => {
   const { id } = useParams<{ id: string }>();
   const attemptCreatedRef = useRef(false);
@@ -68,13 +102,27 @@ const TestPage = () => {
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [loading, setLoading] = useState(true);
   const [localAnswer, setLocalAnswer] = useState<string | string[]>("");
-  const [reviewMarks, setReviewMarks] = useState<Record<string, boolean>>({}); // Track questions marked for review
-  const [sidebarOpen, setSidebarOpen] = useState(false); // Start closed on mobile
-
-  // Add state to track current attempt and saving state
+  const [reviewMarks, setReviewMarks] = useState<Record<string, boolean>>({});
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [attemptId, setAttemptId] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Test results state
+  const [testResults, setTestResults] = useState<TestResults | null>(null);
+  const [showTestResults, setShowTestResults] = useState(false);
+  const [activeTab, setActiveTab] = useState<"summary" | "review">("summary");
+
+  // Certificate state
+  const [certificateModalOpen, setShowCertificateModal] = useState(false);
+  const [certificateFormData, setCertificateFormData] =
+    useState<CertificateFormData>({
+      fullName: "",
+      designation: "",
+      email: "",
+    });
+  const [certificateGenerated, setShowCertificate] = useState(false);
+  const [certificateId, setCertificateId] = useState<string>("");
 
   // Get the current question
   const currentQuestion = assignment?.questions[currentQuestionIndex];
@@ -130,7 +178,7 @@ const TestPage = () => {
 
       // Store the attempt ID for later use
       setAttemptId(attemptData.id);
-      console.log("Created attempt with ID:", attemptData.id);
+      console.log("Attempt created with ID:", attemptData.id);
 
       // After creating the attempt, load any existing answers
       await loadExistingAnswers(attemptData.id);
@@ -177,9 +225,6 @@ const TestPage = () => {
         Object.entries(answersToRestore).forEach(([questionId, answer]) => {
           setAnswer(questionId, answer);
         });
-
-        // Also restore review marks if they exist
-        // (This would require a separate table or field in your DB)
       }
     } catch (error) {
       console.error("Error loading existing answers:", error);
@@ -191,9 +236,6 @@ const TestPage = () => {
     questionId: string,
     answer: string | string[]
   ) => {
-    console.log("attempt:", attemptId);
-    console.log("questionid:", questionId);
-    console.log("answer:", answer);
     if (!attemptId || !user?.id || !questionId) return;
 
     try {
@@ -258,6 +300,93 @@ const TestPage = () => {
     }
   };
 
+  // Calculate test results based on user answers
+  const calculateTestResults = () => {
+    if (!assignment) return null;
+
+    let correctCount = 0;
+    let incorrectCount = 0;
+    let unansweredCount = 0;
+    const detailedAnswers: TestResults["answers"] = [];
+
+    // Collection to store option texts for logging
+    const optionTextLog: Record<string, string> = {};
+
+    // Process each question
+    assignment.questions.forEach((question) => {
+      const userAnswer = testState.answers[question.id];
+      let isCorrect = false;
+      let optionText: string | undefined = undefined;
+
+      // For multiple choice questions
+      if (question.type === "multiple-choice") {
+        const selectedOption = question.options?.find(
+          (opt) => opt.id === userAnswer
+        );
+
+        // Store the option text if an option was selected
+        if (selectedOption) {
+          optionText = selectedOption.text;
+          // Add to our log collection
+          optionTextLog[question.id] = optionText;
+        }
+
+        // Check if any option is correct when no answer is selected
+        if (typeof userAnswer === "undefined") {
+          const hasCorrectOptions = question.options?.some(
+            (opt) => opt.is_correct
+          );
+          if (!hasCorrectOptions) isCorrect = true; // Handle questions with no correct options
+        } else {
+          isCorrect = selectedOption?.is_correct || false;
+        }
+
+        if (isCorrect) correctCount++;
+        else if (typeof userAnswer !== "undefined") incorrectCount++;
+        else unansweredCount++;
+      }
+      // For essay questions
+      else {
+        isCorrect = false; // Essay questions not counted in score
+        if (typeof userAnswer === "undefined") unansweredCount++;
+        else incorrectCount++; // Count as incorrect for scoring purposes
+      }
+
+      detailedAnswers.push({
+        question,
+        answer: userAnswer || "",
+        optionText, // This will be undefined for essay questions or unanswered questions
+        isCorrect,
+      });
+    });
+
+    // Log the collected option texts
+    console.log("Selected option texts:", optionTextLog);
+
+    // Calculate percentage score based on ALL questions
+    const totalQuestions = assignment.questions.length;
+    const score =
+      totalQuestions > 0
+        ? Math.round((correctCount / totalQuestions) * 100)
+        : 0;
+
+    // Determine if the user passed (80% or higher)
+    const passed = score >= 80;
+
+    const results = {
+      score,
+      correctCount,
+      incorrectCount: incorrectCount + unansweredCount,
+      unansweredCount,
+      passed,
+      answers: detailedAnswers,
+    };
+
+    // Log the entire results object
+    console.log("Test results with option texts:", results);
+
+    return results;
+  };
   // Handle saving answer to both context and database
   const handleSetAnswer = (questionId: string, answer: string | string[]) => {
     // First, update local state through the context
@@ -265,6 +394,141 @@ const TestPage = () => {
 
     // Then save to database
     saveAnswerToDatabase(questionId, answer);
+  };
+
+  // Handle generating certificate
+  // Updated handleGenerateCertificate function to fix the "undefined" error
+
+  const handleGenerateCertificate = async () => {
+    if (!user?.id || !assignment || !testResults) {
+      toast.error("Missing required information for certificate generation");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      // Validate required fields
+      if (!certificateFormData.fullName.trim()) {
+        toast.error("Full name is required");
+        return;
+      }
+
+      if (!certificateFormData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+        toast.error("Please enter a valid email address");
+        return;
+      }
+
+      // Prepare answers for storage - serialize to avoid circular references
+      const processedAnswers = testResults.answers.map((item) => ({
+        question_id: item.question.id,
+        question_text: item.question.text,
+        question_type: item.question.type,
+        answer_id: typeof item.answer === "string" ? item.answer : "",
+        answer_text: item.optionText || "",
+        is_correct: item.isCorrect,
+      }));
+
+      // Create unique certificate ID
+      const certificateId = `FB-CERT-${Date.now()}-${Math.floor(
+        Math.random() * 1000
+      )}`;
+
+      // Create certificate payload - only include fields that exist in your database table
+      const certificateData = {
+        user_id: user.id,
+        assessment_id: Number(id),
+        attempt_id: attemptId,
+        full_name: certificateFormData.fullName.trim(),
+        designation: certificateFormData.designation.trim(),
+        email: certificateFormData.email.toLowerCase().trim(),
+        score: testResults.score,
+        certificate_id: certificateId,
+        issued_at: new Date().toISOString(),
+        // Remove answer_data temporarily to test if that's causing the issue
+      };
+
+      // Log the exact data we're sending to the database
+      console.log(
+        "Certificate data for insert:",
+        JSON.stringify(certificateData, null, 2)
+      );
+
+      // Perform insert without the answers first to test
+      // const { data, error } = await supabase
+      //   .from("certificates")
+      //   .insert(certificateData)
+      //   .select();
+
+      // Full error inspection
+      // if (error) {
+      //   console.error(
+      //     "Full Supabase error object:",
+      //     JSON.stringify(error, null, 2)
+      //   );
+      //   console.error("Error code:", error.code);
+      //   console.error("Error message:", error.message);
+      //   console.error("Error details:", error.details);
+
+      //   // Try to provide a meaningful error message
+      //   let errorMessage = "Database error";
+      //   if (error.message) errorMessage += `: ${error.message}`;
+      //   if (error.details) errorMessage += ` (${error.details})`;
+
+      //   toast.error(errorMessage);
+      //   return;
+      // }
+
+      // Check if we got data back
+      // if (!data || data.length === 0) {
+      //   console.error("No data returned from certificate creation");
+      //   toast.error("Failed to create certificate record");
+      //   return;
+      // }
+
+      // console.log("Certificate created successfully:", data[0]);
+
+      // Now try to update with answers in a separate operation
+      // This helps isolate if the answers data is causing problems
+      // try {
+      //   const serializedAnswers = JSON.stringify(processedAnswers);
+
+      //   const { error: updateError } = await supabase
+      //     .from("certificates")
+      //     .update({ answer_data: serializedAnswers })
+      //     .eq("id", data[0].id);
+
+      //   if (updateError) {
+      //     console.error("Error saving answers:", updateError);
+      //     // Continue anyway since the certificate was created
+      //   }
+      // } catch (answerError) {
+      //   console.error("Error updating with answers:", answerError);
+      //   // Continue anyway
+      // }
+
+      // Success handling
+      setShowCertificateModal(false);
+      setShowCertificate(true);
+      setCertificateId(certificateId);
+      toast.success("Certificate generated successfully!");
+
+      // No need to attempt PDF generation if there were issues
+    } catch (error) {
+      console.error("Certificate generation catch-all error:", error);
+
+      // Handle any type of error
+      let errorMessage = "Failed to generate certificate";
+      if (error instanceof Error) {
+        errorMessage = error.message || errorMessage;
+      } else if (typeof error === "object" && error !== null) {
+        errorMessage = JSON.stringify(error);
+      }
+
+      toast.error(errorMessage);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // Handle sidebar based on screen size
@@ -317,6 +581,13 @@ const TestPage = () => {
         }
 
         setUser(user);
+        if (user?.user_metadata?.full_name) {
+          setCertificateFormData((prev) => ({
+            ...prev,
+            fullName: user.user_metadata.full_name,
+            email: user.email || "",
+          }));
+        }
       } catch (error) {
         console.error("Error in fetchUser:", error);
       }
@@ -435,6 +706,17 @@ const TestPage = () => {
       fetchAssignmentData();
     }
   }, [id, supabase, router]);
+
+  // Calculate and display test results when test is completed
+  useEffect(() => {
+    if (testState.completed && assignment) {
+      const results = calculateTestResults();
+      if (results) {
+        setTestResults(results);
+        setShowTestResults(true);
+      }
+    }
+  }, [testState.completed, assignment]);
 
   // Setup navigation watcher
   useEffect(() => {
@@ -638,57 +920,24 @@ const TestPage = () => {
 
       setSubmitting(true);
 
-      // Use actual user details from Supabase
-      const userDetails = {
-        userId: user?.id || "anonymous",
-        userName: user?.user_metadata?.full_name || "Anonymous User",
-        email: user?.email || "no-email",
-      };
-
-      // Calculate finish time
-      const finishTime = new Date().toISOString();
-
-      // Calculate score for multiple-choice questions
-      let correctAnswers = 0;
-      let totalMultipleChoice = 0;
-
-      Object.entries(testState.answers).forEach(([questionId, answer]) => {
-        // Find question in assignment
-        const question = assignment.questions.find((q) => q.id === questionId);
-
-        if (
-          question &&
-          question.type === "multiple-choice" &&
-          typeof answer === "string"
-        ) {
-          totalMultipleChoice++;
-
-          // Find if the selected option is correct
-          const selectedOption = question.options?.find(
-            (opt) => opt.id === answer
-          );
-          if (selectedOption && selectedOption.is_correct) {
-            correctAnswers++;
-          }
-        }
-      });
-
-      // Calculate score as percentage if there are multiple choice questions
-      const score =
-        totalMultipleChoice > 0
-          ? Math.round((correctAnswers / totalMultipleChoice) * 100)
-          : null;
+      // Calculate test results
+      const results = calculateTestResults();
+      if (!results) {
+        throw new Error("Failed to calculate test results");
+      }
 
       // Update the existing attempt record instead of creating a new one
       if (!attemptId) {
         throw new Error("No active attempt found");
       }
 
+      const finishTime = new Date().toISOString();
+
       const { error: updateAttemptError } = await supabase
         .from("assessment_attempts")
         .update({
           finished_at: finishTime,
-          score: score,
+          score: results.score,
           status: "completed",
         })
         .eq("id", attemptId);
@@ -698,20 +947,24 @@ const TestPage = () => {
         throw new Error("Failed to update test attempt");
       }
 
-      // 4. Create payload for API
+      // 4. Create payload for API if needed
       const payload = {
         testId: id,
         attemptId: attemptId,
-        userDetails: userDetails,
+        userDetails: {
+          userId: user?.id || "anonymous",
+          userName: user?.user_metadata?.full_name || "Anonymous User",
+          email: user?.email || "no-email",
+        },
         answers: testState.answers,
         timeSpent:
           (assignment.timeLimit || 0) * 60 * 1000 -
           (testState.remainingTime || 0),
         submittedAt: finishTime,
-        score: score,
+        score: results.score,
       };
 
-      // Send POST request to your API endpoint
+      // Send POST request to your API endpoint if needed
       const response = await fetch(
         "https://srv-roxra.app.n8n.cloud/webhook/0ef3ba2e-0826-4d50-9e0d-9448674ac035",
         {
@@ -729,6 +982,8 @@ const TestPage = () => {
 
       // Once successfully submitted, update local state
       submitTest();
+      setTestResults(results);
+      setShowTestResults(true);
       toast.success("Test submitted successfully!");
       setSubmitModalOpen(false);
     } catch (error) {
@@ -803,79 +1058,335 @@ const TestPage = () => {
     Object.values(reviewMarks).filter(Boolean).length;
   const unansweredCount = assignment.questions.length - answeredQuestions;
 
-  // Render test completion state
-  if (testState.completed) {
+  // Certificate form input handlers
+  const handleCertificateFormChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const { name, value } = e.target;
+    setCertificateFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  // Render certificate
+  const renderCertificate = () => {
+    if (!testResults || !assignment) return null;
+
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="max-w-2xl w-full glass-panel rounded-xl p-8 shadow-lg animate-scale-in">
-          <div className="flex flex-col items-center text-center mb-8">
-            {testState.timeUp ? (
-              <>
-                <Clock className="h-16 w-16 text-destructive mb-4" />
-                <h1 className="text-3xl font-bold mb-2">Time's Up!</h1>
-                <p className="text-lg text-muted-foreground mb-4">
-                  Your test has been automatically submitted as the time limit
-                  was reached.
-                </p>
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="h-16 w-16 text-primary mb-4" />
-                <h1 className="text-3xl font-bold mb-2">Test Completed!</h1>
-                <p className="text-lg text-muted-foreground mb-4">
-                  You've successfully submitted your test for {assignment.title}
-                  .
-                </p>
-              </>
-            )}
+      <div className="bg-white text-black p-8 rounded-lg max-w-3xl mx-auto">
+        <div className="flex justify-between items-center mb-4">
+          <div className="text-xs text-gray-500">
+            Certificate ID: {certificateId}
           </div>
-
-          <div className="bg-secondary/50 rounded-lg p-6 mb-8 border border-border/50">
-            <h2 className="font-medium text-lg mb-4">Test Summary</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <CheckCircle2 className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium">Answered Questions</p>
-                  <p className="text-2xl font-bold">
-                    {answeredQuestions} / {assignment.questions.length}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Clock className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium">Time Taken</p>
-                  <p className="text-2xl font-bold">
-                    {Math.floor(
-                      ((assignment.timeLimit || 0) * 60 * 1000 -
-                        (testState.remainingTime || 0)) /
-                        60000
-                    )}{" "}
-                    min
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Button variant="outline" asChild disabled={submitting}>
-              <Link href="/assignment">Return to Assignments</Link>
+          <div className="flex gap-2">
+            <Button size="sm" variant="default">
+              <Download className="h-4 w-4 mr-1" /> Download
             </Button>
             <Button
-              onClick={handleFinishReview}
-              disabled={submitting}
-              className="cursor-pointer"
+              size="sm"
+              variant="destructive"
+              onClick={() => setShowCertificate(false)}
             >
-              Finish Review
+              <X className="h-4 w-4 mr-1" />
             </Button>
           </div>
         </div>
+
+        <div className="text-center border-b border-gray-200 pb-4">
+          <h1 className="text-3xl font-bold text-blue-600 mt-6">
+            FlytBase Certificate
+          </h1>
+        </div>
+
+        <div className="py-8 space-y-3">
+          <div className="text-green-500">✓ Basic drone safety principles</div>
+          <div className="text-green-500">✓ Flight maneuvers and controls</div>
+          <div className="text-green-500">
+            ✓ Pre-flight checklist competency
+          </div>
+          <div className="text-green-500">✓ Emergency procedures</div>
+          <div className="text-green-500">✓ Airspace regulations awareness</div>
+          <div className="text-green-500">✓ Weather condition assessment</div>
+        </div>
+
+        <div className="mt-12 mb-6 flex justify-end">
+          <div className="bg-gray-100 px-4 py-2 inline-block">
+            Verified by FlytBase Academy
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Render test results page
+  if (showTestResults && testResults) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="max-w-3xl w-full bg-card rounded-xl p-6 shadow-lg">
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-bold mb-2">Assessment Results</h1>
+            <p className="text-muted-foreground">{assignment.title}</p>
+          </div>
+
+          {certificateGenerated ? (
+            renderCertificate()
+          ) : (
+            <>
+              <div className="text-center mb-8">
+                <div className="text-5xl font-bold text-blue-500 mb-1">
+                  {testResults.score}%
+                </div>
+                <div className="text-lg text-muted-foreground">
+                  {testResults.passed ? "Passed" : "Failed"}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4 mb-8">
+                <div className="bg-card shadow rounded-lg p-4 text-center border border-border">
+                  <CheckCircle2 className="mx-auto h-6 w-6 text-emerald-500 mb-2" />
+                  <div className="text-xl font-bold">
+                    {testResults.correctCount}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Correct</div>
+                </div>
+                <div className="bg-card shadow rounded-lg p-4 text-center border border-border">
+                  <AlertCircle className="mx-auto h-6 w-6 text-rose-500 mb-2" />
+                  <div className="text-xl font-bold">
+                    {testResults.incorrectCount}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Incorrect</div>
+                </div>
+                <div className="bg-card shadow rounded-lg p-4 text-center border border-border">
+                  <AlertTriangle className="mx-auto h-6 w-6 text-amber-500 mb-2" />
+                  <div className="text-xl font-bold">
+                    {testResults.unansweredCount}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Unanswered
+                  </div>
+                </div>
+              </div>
+
+              {testResults.passed ? (
+                <div className="bg-green-950/20 border border-green-600/30 rounded-lg p-6 mb-8 text-center">
+                  <div className="inline-block p-2 rounded-full bg-green-100 dark:bg-green-900/30 mb-4">
+                    <Award className="h-8 w-8 text-green-500" />
+                  </div>
+                  <h2 className="text-xl font-semibold mb-2">
+                    Congratulations! You've Qualified for a Certificate
+                  </h2>
+                  <p className="text-muted-foreground mb-4">
+                    You've passed this assessment with a score of{" "}
+                    {testResults.score}%. You can now claim your official
+                    certificate.
+                  </p>
+                  <Button
+                    onClick={() => setShowCertificateModal(true)}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <Award className="mr-2 h-5 w-5" />
+                    Claim Certificate
+                  </Button>
+                </div>
+              ) : (
+                <div className="bg-card border border-border rounded-lg p-6 mb-8">
+                  <h2 className="font-medium text-lg mb-4">
+                    Performance Summary
+                  </h2>
+                  <p className="mb-6 text-muted-foreground">
+                    You answered {testResults.correctCount} out of{" "}
+                    {testResults.correctCount + testResults.incorrectCount}{" "}
+                    questions correctly. We recommend reviewing the course
+                    materials and trying again.
+                  </p>
+
+                  <h3 className="font-medium mb-2">Recommendations</h3>
+                  <ul className="space-y-2 list-disc list-inside text-muted-foreground">
+                    <li>Review the drone safety regulations module</li>
+                    <li>Practice with the flight simulator exercises</li>
+                    <li>
+                      Join the community forum to discuss challenging concepts
+                    </li>
+                  </ul>
+                </div>
+              )}
+
+              <div className="border-t border-border pt-4">
+                <div className="flex gap-1 mb-4">
+                  {/* <Button
+                    variant={activeTab === "summary" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setActiveTab("summary")}
+                    className="rounded-r-none"
+                  >
+                    Summary
+                  </Button> */}
+                  <Button
+                    variant={activeTab === "review" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setActiveTab("review")}
+                    className=""
+                  >
+                    Review Answers
+                  </Button>
+                </div>
+
+                {activeTab === "review" && (
+                  <div className="space-y-6">
+                    {testResults.answers.map((item, index) => (
+                      <div
+                        key={item.question.id}
+                        className="border-b border-border pb-4 last:border-0"
+                      >
+                        <h3 className="font-medium mb-2">
+                          Question {index + 1}: {item.question.text}
+                        </h3>
+
+                        {item.answer ? (
+                          <div className="flex items-start gap-2">
+                            <div className="flex-shrink-0 mt-1">
+                              {item.isCorrect ? (
+                                <CheckCircle2 className="h-5 w-5 text-green-500" />
+                              ) : (
+                                <AlertCircle className="h-5 w-5 text-red-500" />
+                              )}
+                            </div>
+                            <div>
+                              <div className="text-muted-foreground text-sm">
+                                Your answer:
+                              </div>
+                              <div
+                                className={
+                                  item.isCorrect
+                                    ? "text-green-500"
+                                    : "text-red-500"
+                                }
+                              >
+                                {typeof item.answer === "string" &&
+                                item.question.type === "multiple-choice"
+                                  ? item.optionText || "Unknown answer"
+                                  : item.optionText}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-amber-500">
+                            <AlertTriangle className="h-5 w-5" />
+                            <span>Not answered</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {activeTab === "summary" &&
+                  testResults.correctCount === 0 &&
+                  testResults.incorrectCount > 0 && (
+                    <div className="space-y-4">
+                      <p className="text-muted-foreground">
+                        It looks like you had some difficulty with this
+                        assessment. Don't worry - learning takes time, and
+                        understanding concepts deeply is more important than
+                        getting everything right on the first try.
+                      </p>
+                      <p className="text-muted-foreground">
+                        Consider revisiting the course materials, particularly
+                        the sections on drone safety and flight regulations.
+                        Practice makes perfect!
+                      </p>
+                    </div>
+                  )}
+              </div>
+
+              <div className="mt-8 flex justify-between">
+                <Button
+                  variant="outline"
+                  onClick={() => router.push("/assignment")}
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to Assessments
+                </Button>
+
+                <Button onClick={() => router.push(`/assignment/${id}`)}>
+                  Retry Assessment
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Certificate Generation Modal */}
+        <Dialog
+          open={certificateModalOpen}
+          onOpenChange={setShowCertificateModal}
+        >
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Generate Your Certificate</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <p className="text-sm text-muted-foreground mb-4">
+                Congratulations on passing the assessment! Fill in your details
+                to generate your certificate.
+              </p>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="fullName">Full Name</Label>
+                  <Input
+                    id="fullName"
+                    name="fullName"
+                    placeholder="John Doe"
+                    value={certificateFormData.fullName}
+                    onChange={handleCertificateFormChange}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="designation">Designation/Title</Label>
+                  <Input
+                    id="designation"
+                    name="designation"
+                    placeholder="Drone Pilot, Instructor, etc."
+                    value={certificateFormData.designation}
+                    onChange={handleCertificateFormChange}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email Address</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="your.email@example.com"
+                    value={certificateFormData.email}
+                    onChange={handleCertificateFormChange}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 space-y-1 text-xs text-muted-foreground">
+                <div>Certificate Details:</div>
+                <div>Assessment: {assignment.title}</div>
+                <div>Score: {testResults.score}%</div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowCertificateModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleGenerateCertificate} disabled={submitting}>
+                {submitting ? "Generating..." : "Generate Certificate"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
