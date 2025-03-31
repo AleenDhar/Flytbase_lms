@@ -12,6 +12,9 @@ import {
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
+import { Heart, BookOpen, Clock, Video } from "lucide-react";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 
 interface Course {
   id: number;
@@ -26,6 +29,7 @@ interface Course {
 const UserPage = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
+  const [wishlist, setWishlist] = useState<number[]>([]);
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -40,35 +44,98 @@ const UserPage = () => {
       setLoading(false);
     };
 
+    // Load wishlist from localStorage
+    const savedWishlist = localStorage.getItem("courseWishlist");
+    if (savedWishlist) {
+      setWishlist(JSON.parse(savedWishlist));
+    }
+
     fetchCourses();
   }, []);
 
+  const handleEnroll = (
+    e: React.MouseEvent,
+    courseId: number,
+    courseTitle: string
+  ) => {
+    e.preventDefault(); // Prevent card navigation
+    e.stopPropagation(); // Prevent event bubbling
+    toast.success(`Enrolled in "${courseTitle}"`, {
+      description: "You can now access all course materials.",
+    });
+    // Navigate to course page after a small delay
+    setTimeout(() => {
+      window.location.href = `/course/${courseId}`;
+    }, 1000);
+  };
+
+  const toggleWishlist = (
+    e: React.MouseEvent,
+    courseId: number,
+    courseTitle: string
+  ) => {
+    e.preventDefault(); // Prevent card navigation
+    e.stopPropagation(); // Prevent event bubbling
+
+    setWishlist((prev) => {
+      const isInWishlist = prev.includes(courseId);
+      let newWishlist;
+
+      if (isInWishlist) {
+        newWishlist = prev.filter((id) => id !== courseId);
+        toast.info(`Removed "${courseTitle}" from wishlist`);
+      } else {
+        newWishlist = [...prev, courseId];
+        toast.success(`Added "${courseTitle}" to wishlist`);
+      }
+
+      // Save to localStorage
+      localStorage.setItem("courseWishlist", JSON.stringify(newWishlist));
+      return newWishlist;
+    });
+  };
+
+  const navigateToCourse = (courseId: number) => {
+    window.location.href = `/course/${courseId}`;
+  };
+
   if (loading)
     return (
-      <p className="text-center text-lg py-12 text-foreground">
-        Loading courses...
-      </p>
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full"></div>
+      </div>
     );
+
   if (!courses.length)
     return (
-      <p className="text-center text-lg py-12 text-foreground">
-        No courses found
-      </p>
+      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+        <div className="text-6xl mb-4">📚</div>
+        <h2 className="text-2xl font-bold text-center mb-2">
+          No Courses Found
+        </h2>
+        <p className="text-muted-foreground text-center mb-8">
+          We couldn't find any courses at the moment.
+        </p>
+        <Button asChild>
+          <Link href="/dashboard">Return to Dashboard</Link>
+        </Button>
+      </div>
     );
 
   return (
     <div className="bg-background min-h-screen">
       {/* Hero Section */}
-      <section className="py-28 bg-gradient-to-br from-primary to-secondary">
-        <div className="container max-w-4xl mx-auto px-4 text-center">
-          <h1 className="text-5xl md:text-6xl font-extrabold text-white mb-6">
-            Elevate Your Skills
+      <section className="bg-gradient-to-r from-primary/20 to-purple-500/20 py-16">
+        <div className="container max-w-6xl mx-auto px-4">
+          <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
+            Expand Your Knowledge
           </h1>
-          <p className="text-xl md:text-2xl text-white mb-10">
-            Explore our curated courses and start your journey toward mastery.
+          <p className="text-xl mb-6 max-w-xl text-muted-foreground">
+            Discover top-quality courses designed to help you master new skills
+            and advance your career.
           </p>
-          <Button asChild variant="default">
-            <Link href="/explore">Discover Courses</Link>
+          <Button asChild size="lg">
+            <Link href="/dashboard">My Dashboard</Link>
           </Button>
         </div>
       </section>
@@ -79,143 +146,108 @@ const UserPage = () => {
           <h2 className="text-3xl font-bold text-foreground mb-4 md:mb-0">
             Courses for You
           </h2>
-          <Button asChild variant="outline">
-            <Link href="/dashboard">My Dashboard</Link>
-          </Button>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
-          {courses.map((course) => (
-            <Card
-              key={course.id}
-              className="bg-card border-card rounded-lg overflow-hidden shadow transition-transform transform hover:-translate-y-1 hover:shadow-lg"
-            >
-              <div className="relative w-full overflow-hidden h-40">
-                <img
-                  src={course.thumbnail}
-                  alt={course.title}
-                  className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                />
-              </div>
-              <CardHeader className="p-4">
-                <CardTitle className="text-xl font-semibold text-foreground">
-                  {course.title}
-                </CardTitle>
-                <CardDescription className="mt-2 text-sm text-muted-foreground">
-                  {course.description || "No description available"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="px-4">
-                <div className="text-sm text-foreground">
-                  {course.video_count} videos
-                </div>
-              </CardContent>
-              <CardFooter className="p-4">
-                <Button asChild className="w-full">
-                  <Link href={`/course/${course.id}`}>View Course</Link>
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="py-20 bg-muted">
-        <div className="container max-w-6xl mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold text-foreground mb-8">
-            Why Choose Us?
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="px-6 py-8 bg-card rounded-lg shadow-sm">
-              <div className="text-5xl mb-4">⚡</div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">
-                Fast Learning
-              </h3>
-              <p className="text-muted-foreground">
-                Bite-sized lessons that help you learn quickly and efficiently.
-              </p>
-            </div>
-            <div className="px-6 py-8 bg-card rounded-lg shadow-sm">
-              <div className="text-5xl mb-4">🛠️</div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">
-                Practical Tools
-              </h3>
-              <p className="text-muted-foreground">
-                Interactive resources and real-world examples to boost your
-                skills.
-              </p>
-            </div>
-            <div className="px-6 py-8 bg-card rounded-lg shadow-sm">
-              <div className="text-5xl mb-4">🌐</div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">
-                Global Community
-              </h3>
-              <p className="text-muted-foreground">
-                Connect with learners worldwide and share your progress.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials Section */}
-      <section className="py-20">
-        <div className="container max-w-6xl mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold text-foreground mb-10">
-            Hear from Our Learners
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="px-6 py-8 bg-card border border-card rounded-lg shadow-sm">
-              <p className="text-muted-foreground italic">
-                "This platform has completely changed my approach to learning.
-                The courses are structured, engaging, and truly inspiring."
-              </p>
-              <p className="mt-4 font-semibold text-foreground">- Alex D.</p>
-            </div>
-            <div className="px-6 py-8 bg-card border border-card rounded-lg shadow-sm">
-              <p className="text-muted-foreground italic">
-                "The interactive tools and global community have made learning
-                so much more enjoyable and effective!"
-              </p>
-              <p className="mt-4 font-semibold text-foreground">- Jamie L.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Newsletter Signup Section */}
-      <section className="py-20 bg-gradient-to-br from-primary to-secondary">
-        <div className="container max-w-4xl mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold text-white mb-4">Stay Informed</h2>
-          <p className="text-lg text-white mb-8">
-            Subscribe to our newsletter for exclusive tips, courses, and
-            updates.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center max-w-md mx-auto">
-            <input
-              type="email"
-              placeholder="Enter your email"
-              className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary mb-4 sm:mb-0 sm:rounded-r-none"
-            />
-            <Button asChild className="w-full sm:w-auto sm:rounded-l-none">
-              <Link href="/subscribe">Subscribe</Link>
+          <div className="flex gap-4">
+            <Button variant="outline">
+              <BookOpen className="mr-2 h-4 w-4" />
+              My Learning
+            </Button>
+            <Button variant="outline">
+              <Heart className="mr-2 h-4 w-4" />
+              My Wishlist
             </Button>
           </div>
         </div>
-      </section>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          {courses.map((course) => (
+            <Card
+              key={course.id}
+              className="group bg-card border-card rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer relative "
+              onClick={() => navigateToCourse(course.id)}
+            >
+              {/* Ribbon for popular courses (example) */}
+              {course.video_count > 10 && (
+                <div className="absolute top-4 right-0 z-10">
+                  <Badge className="bg-amber-500 text-white font-medium rounded-l-full rounded-r-none py-1 px-3">
+                    Popular
+                  </Badge>
+                </div>
+              )}
 
-      {/* Call-to-Action Section */}
-      <section className="py-20 bg-card">
-        <div className="container max-w-6xl mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold text-foreground mb-4">
-            Ready to Start Your Journey?
-          </h2>
-          <p className="text-lg text-muted-foreground mb-8">
-            Join thousands of learners and unlock your potential today.
-          </p>
-          <Button asChild variant="default">
-            <Link href="/signup">Get Started</Link>
-          </Button>
+              <div className="relative w-full overflow-hidden h-48">
+                <img
+                  src={
+                    course.thumbnail ||
+                    "https://placehold.co/600x400/3730a3/ffffff?text=Course"
+                  }
+                  alt={course.title}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                />
+                {/* <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div> */}
+                <div className="absolute bottom-4 left-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <Badge
+                    variant="outline"
+                    className="bg-black/50 text-white border-none"
+                  >
+                    <Video className="mr-1 h-3 w-3" />
+                    {course.video_count} videos
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className="bg-black/50 text-white border-none"
+                  >
+                    <Clock className="mr-1 h-3 w-3" />
+                    {Math.round(course.video_count * 7)} min
+                  </Badge>
+                </div>
+              </div>
+              <div className="p-4">
+                <CardHeader className="p-5 pb-2">
+                  <CardTitle className="text-xl font-bold text-foreground group-hover:text-primary transition-colors">
+                    {course.title}
+                  </CardTitle>
+                  <CardDescription className="mt-2 text-sm line-clamp-2 h-10">
+                    {course.description ||
+                      "Dive into this comprehensive course designed to enhance your skills and knowledge."}
+                  </CardDescription>
+                </CardHeader>
+
+                {/* <CardContent className="px-5 pt-2 pb-3">
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4 mr-1" />
+                  <span>
+                    Last updated:{" "}
+                    {new Date(course.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+              </CardContent> */}
+
+                <CardFooter className="p-5 pt-2 flex gap-2 border-t border-border/40">
+                  <Button
+                    className="flex-1 bg-primary hover:bg-primary/90"
+                    onClick={(e) => handleEnroll(e, course.id, course.title)}
+                  >
+                    Enroll Now
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className={
+                      wishlist.includes(course.id)
+                        ? "text-red-500 border-red-200"
+                        : ""
+                    }
+                    onClick={(e) => toggleWishlist(e, course.id, course.title)}
+                  >
+                    <Heart
+                      className={`h-5 w-5 ${
+                        wishlist.includes(course.id) ? "fill-red-500" : ""
+                      }`}
+                    />
+                  </Button>
+                </CardFooter>
+              </div>
+            </Card>
+          ))}
         </div>
       </section>
     </div>
