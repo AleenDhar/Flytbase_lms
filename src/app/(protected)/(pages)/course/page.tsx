@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
-import { Heart, BookOpen, Clock, Video } from "lucide-react";
+import { Heart, BookOpen, Clock, Video, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 
@@ -26,73 +26,223 @@ interface Course {
   created_at: string;
 }
 
+interface User {
+  id: string;
+}
+
 const UserPage = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [wishlist, setWishlist] = useState<number[]>([]);
+  const [user, setUser] = useState<User | null>(null);
+  const [enrolledCourses, setEnrolledCourses] = useState<number[]>([]);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const supabase = createClient();
 
   useEffect(() => {
-    const fetchCourses = async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase.from("courses").select("*");
+    const fetchUserAndData = async () => {
+      try {
+        // Get current user
+        const {
+          data: { user: currentUser },
+          error: userError,
+        } = await supabase.auth.getUser();
 
-      if (error) {
-        console.error("Error fetching courses:", error);
-      } else {
-        setCourses(data);
+        if (userError) {
+          console.error("Error fetching user:", userError);
+          setLoading(false);
+          return;
+        }
+
+        if (currentUser) {
+          setUser({ id: currentUser.id });
+
+          // Fetch courses
+          const { data: coursesData, error: coursesError } = await supabase
+            .from("courses")
+            .select("*");
+
+          if (coursesError) {
+            console.error("Error fetching courses:", coursesError);
+          } else {
+            setCourses(coursesData || []);
+          }
+
+          // Fetch user's enrollments
+          const { data: enrollmentsData, error: enrollmentsError } =
+            await supabase
+              .from("course_enrollments")
+              .select("course_id")
+              .eq("user_id", currentUser.id);
+
+          if (enrollmentsError) {
+            console.error("Error fetching enrollments:", enrollmentsError);
+          } else {
+            setEnrolledCourses(enrollmentsData.map((item) => item.course_id));
+          }
+
+          // Fetch user's wishlist
+          const { data: wishlistData, error: wishlistError } = await supabase
+            .from("course_wishlist")
+            .select("course_id")
+            .eq("user_id", currentUser.id);
+
+          if (wishlistError) {
+            console.error("Error fetching wishlist:", wishlistError);
+          } else {
+            setWishlist(wishlistData.map((item) => item.course_id));
+          }
+        } else {
+          // If no user is logged in, load courses only
+          const { data, error } = await supabase.from("courses").select("*");
+          if (error) {
+            console.error("Error fetching courses:", error);
+          } else {
+            setCourses(data || []);
+          }
+
+          // Load wishlist from localStorage for non-logged in users
+          const savedWishlist = localStorage.getItem("courseWishlist");
+          if (savedWishlist) {
+            setWishlist(JSON.parse(savedWishlist));
+          }
+        }
+      } catch (error) {
+        console.error("Error in data fetching:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
-    // Load wishlist from localStorage
-    const savedWishlist = localStorage.getItem("courseWishlist");
-    if (savedWishlist) {
-      setWishlist(JSON.parse(savedWishlist));
-    }
-
-    fetchCourses();
+    fetchUserAndData();
   }, []);
 
-  const handleEnroll = (
+  const handleEnroll = async (
     e: React.MouseEvent,
     courseId: number,
     courseTitle: string
   ) => {
     e.preventDefault(); // Prevent card navigation
     e.stopPropagation(); // Prevent event bubbling
-    toast.success(`Enrolled in "${courseTitle}"`, {
-      description: "You can now access all course materials.",
-    });
-    // Navigate to course page after a small delay
-    setTimeout(() => {
+
+    if (!user) {
+      toast.error("Please sign in to enroll in courses");
+      return;
+    }
+
+    // Check if already enrolled
+    if (enrolledCourses.includes(courseId)) {
+      // If already enrolled, just redirect to the course
       window.location.href = `/course/${courseId}`;
-    }, 1000);
-  };
+      return;
+    }
 
-  const toggleWishlist = (
-    e: React.MouseEvent,
-    courseId: number,
-    courseTitle: string
-  ) => {
-    e.preventDefault(); // Prevent card navigation
-    e.stopPropagation(); // Prevent event bubbling
+    // Set loading state for this specific course
+    setActionLoading(courseId);
 
-    setWishlist((prev) => {
-      const isInWishlist = prev.includes(courseId);
-      let newWishlist;
+    try {
+      // Add enrollment to database
+      const { error } = await supabase.from("course_enrollments").insert({
+        user_id: user.id,
+        course_id: courseId,
+        status: "active",
+        progress_percentage: 0,
+        // enrolled_at: new Date().toISOString(),
+      });
 
-      if (isInWishlist) {
-        newWishlist = prev.filter((id) => id !== courseId);
-        toast.info(`Removed "${courseTitle}" from wishlist`);
-      } else {
-        newWishlist = [...prev, courseId];
-        toast.success(`Added "${courseTitle}" to wishlist`);
+      if (error) {
+        console.error("Error enrolling in course:", error);
+        toast.error("Failed to enroll in course");
+        return;
       }
 
-      // Save to localStorage
-      localStorage.setItem("courseWishlist", JSON.stringify(newWishlist));
-      return newWishlist;
-    });
+      // Update local state
+      setEnrolledCourses((prev) => [...prev, courseId]);
+
+      toast.success(`Enrolled in "${courseTitle}"`, {
+        description: "You can now access all course materials.",
+      });
+
+      // Navigate to course page after a small delay
+      setTimeout(() => {
+        window.location.href = `/course/${courseId}`;
+      }, 1000);
+    } catch (error) {
+      console.error("Enrollment error:", error);
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const toggleWishlist = async (
+    e: React.MouseEvent,
+    courseId: number,
+    courseTitle: string
+  ) => {
+    e.preventDefault(); // Prevent card navigation
+    e.stopPropagation(); // Prevent event bubbling
+
+    // Set loading state for this specific course
+    setActionLoading(courseId);
+
+    try {
+      const isInWishlist = wishlist.includes(courseId);
+
+      if (user) {
+        // User is logged in, update database
+        if (isInWishlist) {
+          // Remove from wishlist in database
+          const { error } = await supabase
+            .from("course_wishlist")
+            .delete()
+            .eq("user_id", user.id)
+            .eq("course_id", courseId);
+
+          if (error) {
+            console.error("Error removing from wishlist:", error);
+            toast.error("Failed to remove from wishlist");
+            return;
+          }
+        } else {
+          // Add to wishlist in database
+          const { error } = await supabase.from("course_wishlist").insert({
+            user_id: user.id,
+            course_id: courseId,
+            added_at: new Date().toISOString(),
+          });
+
+          if (error) {
+            console.error("Error adding to wishlist:", error);
+            toast.error("Failed to add to wishlist");
+            return;
+          }
+        }
+      } else {
+        // User not logged in, just update localStorage
+        const newWishlist = isInWishlist
+          ? wishlist.filter((id) => id !== courseId)
+          : [...wishlist, courseId];
+
+        localStorage.setItem("courseWishlist", JSON.stringify(newWishlist));
+      }
+
+      // Update local state
+      setWishlist((prev) => {
+        if (isInWishlist) {
+          toast.info(`Removed "${courseTitle}" from wishlist`);
+          return prev.filter((id) => id !== courseId);
+        } else {
+          toast.success(`Added "${courseTitle}" to wishlist`);
+          return [...prev, courseId];
+        }
+      });
+    } catch (error) {
+      console.error("Wishlist operation error:", error);
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const navigateToCourse = (courseId: number) => {
@@ -149,11 +299,11 @@ const UserPage = () => {
           <div className="flex gap-4">
             <Button variant="outline">
               <BookOpen className="mr-2 h-4 w-4" />
-              My Learning
+              My Learning {user && `(${enrolledCourses.length})`}
             </Button>
             <Button variant="outline">
               <Heart className="mr-2 h-4 w-4" />
-              My Wishlist
+              My Wishlist {user && `(${wishlist.length})`}
             </Button>
           </div>
         </div>
@@ -164,13 +314,21 @@ const UserPage = () => {
               className="group bg-card border-card rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer relative "
               onClick={() => navigateToCourse(course.id)}
             >
-              {/* Ribbon for popular courses (example) */}
-              {course.video_count > 10 && (
+              {/* Ribbon for enrollments or popular courses */}
+              {enrolledCourses.includes(course.id) ? (
                 <div className="absolute top-4 right-0 z-10">
-                  <Badge className="bg-amber-500 text-white font-medium rounded-l-full rounded-r-none py-1 px-3">
-                    Popular
+                  <Badge className="bg-green-500 text-white font-medium rounded-l-full rounded-r-none py-1 px-3">
+                    Enrolled
                   </Badge>
                 </div>
+              ) : (
+                course.video_count > 10 && (
+                  <div className="absolute top-4 right-0 z-10">
+                    <Badge className="bg-amber-500 text-white font-medium rounded-l-full rounded-r-none py-1 px-3">
+                      Popular
+                    </Badge>
+                  </div>
+                )
               )}
 
               <div className="relative w-full overflow-hidden h-48">
@@ -182,7 +340,6 @@ const UserPage = () => {
                   alt={course.title}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                 />
-                {/* <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div> */}
                 <div className="absolute bottom-4 left-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                   <Badge
                     variant="outline"
@@ -211,22 +368,22 @@ const UserPage = () => {
                   </CardDescription>
                 </CardHeader>
 
-                {/* <CardContent className="px-5 pt-2 pb-3">
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <Clock className="h-4 w-4 mr-1" />
-                  <span>
-                    Last updated:{" "}
-                    {new Date(course.created_at).toLocaleDateString()}
-                  </span>
-                </div>
-              </CardContent> */}
-
                 <CardFooter className="p-5 pt-2 flex gap-2 border-t border-border/40">
                   <Button
-                    className="flex-1 bg-primary hover:bg-primary/90"
+                    className={`flex-1 ${
+                      enrolledCourses.includes(course.id)
+                        ? "bg-green-600 hover:bg-green-700"
+                        : "bg-primary hover:bg-primary/90"
+                    } cursor-pointer`}
                     onClick={(e) => handleEnroll(e, course.id, course.title)}
+                    disabled={actionLoading === course.id}
                   >
-                    Enroll Now
+                    {actionLoading === course.id ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : null}
+                    {enrolledCourses.includes(course.id)
+                      ? "Continue Learning"
+                      : "Enroll Now"}
                   </Button>
                   <Button
                     variant="outline"
@@ -237,12 +394,17 @@ const UserPage = () => {
                         : ""
                     }
                     onClick={(e) => toggleWishlist(e, course.id, course.title)}
+                    disabled={actionLoading === course.id}
                   >
-                    <Heart
-                      className={`h-5 w-5 ${
-                        wishlist.includes(course.id) ? "fill-red-500" : ""
-                      }`}
-                    />
+                    {actionLoading === course.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Heart
+                        className={`h-5 w-5 ${
+                          wishlist.includes(course.id) ? "fill-red-500" : ""
+                        }`}
+                      />
+                    )}
                   </Button>
                 </CardFooter>
               </div>

@@ -16,6 +16,15 @@ import {
   LogOut,
   Moon,
   Sun,
+  ChevronDown,
+  Mail,
+  Phone,
+  Facebook,
+  Twitter,
+  Instagram,
+  Linkedin,
+  Github,
+  Youtube,
 } from "lucide-react";
 import { ModeToggle } from "@/components/theme/mode-toggle";
 import UserGreetText from "@/components/UserGreetText";
@@ -63,6 +72,7 @@ const Layout = ({ children }: LayoutProps) => {
   const router = useRouter();
   const supabase = createClient();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
 
   // For mobile view determination
   const [isMobile, setIsMobile] = useState(false);
@@ -75,6 +85,20 @@ const Layout = ({ children }: LayoutProps) => {
     setMounted(true);
     // Initial check for mobile view
     setIsMobile(window.innerWidth < 768);
+  }, []);
+
+  // Add scroll event listener
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 10) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   useEffect(() => {
@@ -276,38 +300,127 @@ const Layout = ({ children }: LayoutProps) => {
     },
   ];
 
+  // Footer navigation links
+  const footerLinks = [
+    {
+      title: "Learn",
+      links: [
+        { name: "Courses", href: "/course" },
+        { name: "Tutorials", href: "/tutorials" },
+        { name: "Resources", href: "/resources" },
+        { name: "Blog", href: "/blog" },
+      ],
+    },
+    {
+      title: "Support",
+      links: [
+        { name: "Help Center", href: "/help" },
+        { name: "Contact Us", href: "/contact" },
+        { name: "FAQ", href: "/faq" },
+        { name: "Community", href: "/community" },
+      ],
+    },
+    {
+      title: "Company",
+      links: [
+        { name: "About Us", href: "/about" },
+        { name: "Careers", href: "/careers" },
+        { name: "Privacy", href: "/privacy" },
+        { name: "Terms", href: "/terms" },
+      ],
+    },
+  ];
+
   return (
     <div className="min-h-screen flex flex-col">
-      <nav className="bg-card sticky top-0 z-50 shadow-sm">
+      <nav
+        className={`w-full sticky top-0 z-50 transition-all duration-200 ${
+          isScrolled
+            ? "bg-card/90 backdrop-blur-md shadow-md"
+            : "bg-card shadow-sm"
+        }`}
+      >
         <div className="mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
           <div className="flex justify-between h-16">
-            <Link className="flex items-center" href="/">
-              <img
-                src={getLogo()}
-                alt="Flytbase Academy"
-                className="h-10 w-auto sm:w-auto max-w-[72px] sm:max-w-[200px] md:max-w-[280px] object-contain"
-              />
-            </Link>
+            <div className="flex items-center">
+              <Link className="flex items-center" href="/">
+                <img
+                  src={getLogo()}
+                  alt="Flytbase Academy"
+                  className="h-10 w-auto sm:w-auto max-w-[72px] sm:max-w-[200px] md:max-w-[280px] object-contain"
+                />
+              </Link>
 
-            {/* Desktop navigation */}
-            <div className="hidden md:flex items-center space-x-8">
-              <Link href="/dashboard">
-                <span className="text-foreground hover:text-primary transition-colors duration-300 font-medium">
+              {/* Desktop navigation */}
+              <div className="hidden md:flex items-center ml-10 space-x-1">
+                <Link
+                  href="/dashboard"
+                  className="px-3 py-2 rounded-md text-sm font-medium text-foreground hover:text-primary hover:bg-accent/30 transition-colors duration-300"
+                >
                   Dashboard
-                </span>
-              </Link>
-              <Link href="/assignment">
-                <span className="text-foreground hover:text-primary transition-colors duration-300 font-medium">
+                </Link>
+                <Link
+                  href="/assignment"
+                  className="px-3 py-2 rounded-md text-sm font-medium text-foreground hover:text-primary hover:bg-accent/30 transition-colors duration-300"
+                >
                   Assignments
-                </span>
-              </Link>
-              <Link href="/course">
-                <span className="text-foreground hover:text-primary transition-colors duration-300 font-medium">
+                </Link>
+                <Link
+                  href="/course"
+                  className="px-3 py-2 rounded-md text-sm font-medium text-foreground hover:text-primary hover:bg-accent/30 transition-colors duration-300"
+                >
                   Courses
-                </span>
-              </Link>
+                </Link>
+
+                {/* Dropdown menu example */}
+                <div className="relative group">
+                  <button className="flex items-center px-3 py-2 rounded-md text-sm font-medium text-foreground hover:text-primary hover:bg-accent/30 transition-colors duration-300">
+                    Resources
+                    <ChevronDown className="ml-1 h-4 w-4" />
+                  </button>
+                  <div className="absolute left-0 mt-2 w-48 bg-card rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 border border-border">
+                    <div className="py-1 rounded-md">
+                      <Link
+                        href="/blog"
+                        className="block px-4 py-2 text-sm text-foreground hover:bg-accent hover:text-primary"
+                      >
+                        Blog
+                      </Link>
+                      <Link
+                        href="/tutorials"
+                        className="block px-4 py-2 text-sm text-foreground hover:bg-accent hover:text-primary"
+                      >
+                        Tutorials
+                      </Link>
+                      <Link
+                        href="/webinars"
+                        className="block px-4 py-2 text-sm text-foreground hover:bg-accent hover:text-primary"
+                      >
+                        Webinars
+                      </Link>
+                      <Link
+                        href="/docs"
+                        className="block px-4 py-2 text-sm text-foreground hover:bg-accent hover:text-primary"
+                      >
+                        Documentation
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="hidden md:flex items-center space-x-4">
               <ModeToggle />
+              <div className="h-6 w-px bg-border/70"></div>
               <UserGreetText />
+              {/* <button
+                onClick={handleLogout}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-full text-destructive hover:bg-destructive/10 border border-destructive/30 transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Logout</span>
+              </button> */}
             </div>
 
             {/* Mobile menu button */}
@@ -335,8 +448,6 @@ const Layout = ({ children }: LayoutProps) => {
             className="md:hidden bg-card py-4 px-4 shadow-lg border-t border-border animate-in slide-in-from-top duration-300"
           >
             <div className="space-y-1">
-              {/* User greeting removed from mobile view as requested */}
-
               <Link href="/dashboard" onClick={() => setIsMenuOpen(false)}>
                 <span className="flex items-center gap-2 text-foreground hover:text-primary hover:bg-accent/50 transition-colors duration-300 py-3 px-3 rounded-md">
                   <Home className="w-5 h-5" />
@@ -358,6 +469,23 @@ const Layout = ({ children }: LayoutProps) => {
                 </span>
               </Link>
 
+              {/* More mobile menu items */}
+              <div className="py-2 border-t border-border mt-2">
+                <h3 className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Resources
+                </h3>
+                <Link href="/blog" onClick={() => setIsMenuOpen(false)}>
+                  <span className="flex items-center gap-2 text-foreground hover:text-primary hover:bg-accent/50 transition-colors duration-300 py-2 px-3 pl-6 rounded-md text-sm">
+                    Blog
+                  </span>
+                </Link>
+                <Link href="/tutorials" onClick={() => setIsMenuOpen(false)}>
+                  <span className="flex items-center gap-2 text-foreground hover:text-primary hover:bg-accent/50 transition-colors duration-300 py-2 px-3 pl-6 rounded-md text-sm">
+                    Tutorials
+                  </span>
+                </Link>
+              </div>
+
               {/* Custom theme toggle for mobile that works consistently */}
               <button
                 onClick={toggleTheme}
@@ -377,15 +505,21 @@ const Layout = ({ children }: LayoutProps) => {
               </button>
 
               <div className="pt-2 mt-2 border-t border-border">
+                {/* User profile area in mobile */}
+                <div className="px-3 py-2 text-sm text-muted-foreground">
+                  Signed in as{" "}
+                  <span className="font-medium text-foreground">John Doe</span>
+                </div>
+
                 {/* Functional logout button */}
-                <button
+                {/* <button
                   onClick={handleLogout}
                   disabled={isLoggingOut}
                   className="w-full flex items-center gap-2 text-destructive hover:bg-destructive/10 transition-colors duration-300 py-3 px-3 rounded-md"
                 >
                   <LogOut className="w-5 h-5" />
                   <span>{isLoggingOut ? "Logging out..." : "Logout"}</span>
-                </button>
+                </button> */}
               </div>
             </div>
           </div>
@@ -394,11 +528,100 @@ const Layout = ({ children }: LayoutProps) => {
 
       <main className="flex-1">{children}</main>
 
-      <footer className="border-t py-6 bg-muted/30">
-        <div className="container max-w-6xl mx-auto px-4 text-center">
-          <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Flytbase Academy. All rights reserved.
-          </p>
+      {/* Enhanced Footer */}
+      <footer className="bg-muted/30 border-t border-border">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          {/* Footer main content */}
+          <div className="py-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {/* Company info */}
+            <div>
+              <img
+                src={getLogo()}
+                alt="Flytbase Academy"
+                className="h-8 w-auto mb-4"
+              />
+              <p className="text-sm text-muted-foreground mb-4">
+                Empowering learners worldwide with cutting-edge drone technology
+                education and professional training programs.
+              </p>
+              <div className="flex space-x-4">
+                <a
+                  href="#"
+                  className="text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <Facebook className="h-5 w-5" />
+                </a>
+                <a
+                  href="#"
+                  className="text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <Twitter className="h-5 w-5" />
+                </a>
+                <a
+                  href="#"
+                  className="text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <Instagram className="h-5 w-5" />
+                </a>
+                <a
+                  href="#"
+                  className="text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <Linkedin className="h-5 w-5" />
+                </a>
+              </div>
+            </div>
+
+            {/* Footer link columns */}
+            {footerLinks.map((column) => (
+              <div key={column.title}>
+                <h3 className="text-sm font-semibold text-foreground mb-4">
+                  {column.title}
+                </h3>
+                <ul className="space-y-2">
+                  {column.links.map((link) => (
+                    <li key={link.name}>
+                      <Link
+                        href={link.href}
+                        className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        {link.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+
+          {/* Bottom bar */}
+          <div className="border-t border-border py-6 flex flex-col md:flex-row justify-between items-center">
+            <p className="text-sm text-muted-foreground">
+              © {new Date().getFullYear()} Flytbase Academy. All rights
+              reserved.
+            </p>
+
+            <div className="flex mt-4 md:mt-0 space-x-6">
+              <a
+                href="#"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Privacy Policy
+              </a>
+              <a
+                href="#"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Terms of Service
+              </a>
+              <a
+                href="#"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Cookie Policy
+              </a>
+            </div>
+          </div>
         </div>
       </footer>
     </div>
