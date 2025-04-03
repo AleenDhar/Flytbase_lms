@@ -109,14 +109,15 @@ interface Video {
 }
 
 interface Question {
-  id: string;
+  id: number;
   question_text: string;
-  description: string | null;
+  description?: string | null;
   question_type: string;
-  video_id: string | null;
-  assessment_id: string | null;
-  course_id: string | null;
-  difficulty: string | null;
+  video_id?: number | null;
+  assessment_id?: number | null;
+  difficulty?: string | null;
+  after_videoend?: boolean | null;
+  is_assessment?: boolean | null;
   options?: QuestionOption[];
 }
 
@@ -128,13 +129,17 @@ interface QuestionOption {
 }
 
 interface QuestionForm {
-  id?: string;
+  id?: number;
   question_text: string;
-  description: string;
+  description?: string | null;
   question_type: string;
-  difficulty: string;
+  difficulty?: string | null;
+  video_id?: number | null;
+  assessment_id?: number | null;
+  after_videoend?: boolean | null;
+  is_assessment?: boolean | null;
   options: {
-    id?: string;
+    id?: number;
     option_text: string;
     is_correct: boolean;
   }[];
@@ -176,13 +181,16 @@ export default function AdminDashboard() {
     description: "",
     question_type: "multiple-choice",
     difficulty: "medium",
+    video_id: null,
+    assessment_id: null,
+    after_videoend: false,
+    is_assessment: false,
     options: [
-      { option_text: "", is_correct: false },
-      { option_text: "", is_correct: false },
       { option_text: "", is_correct: false },
       { option_text: "", is_correct: false },
     ],
   });
+
   const [isEditing, setIsEditing] = useState(false);
 
   // Check admin status on component mount
@@ -540,20 +548,17 @@ export default function AdminDashboard() {
       question_text: question.question_text,
       description: question.description || "",
       question_type: question.question_type,
-      difficulty: question.difficulty || "medium",
+      difficulty: question.difficulty,
+      video_id: question.video_id,
+      assessment_id: question.assessment_id,
+      after_videoend: question.after_videoend,
+      is_assessment: question.is_assessment,
       options:
-        question.options && question.options.length > 0
-          ? question.options.map((opt) => ({
-              id: opt.id,
-              option_text: opt.option_text,
-              is_correct: opt.is_correct,
-            }))
-          : [
-              { option_text: "", is_correct: false },
-              { option_text: "", is_correct: false },
-              { option_text: "", is_correct: false },
-              { option_text: "", is_correct: false },
-            ],
+        question.options?.map((opt) => ({
+          id: typeof opt.id === "string" ? parseInt(opt.id) : opt.id,
+          option_text: opt.option_text,
+          is_correct: opt.is_correct,
+        })) || [],
     });
 
     setIsEditing(true);
@@ -639,67 +644,44 @@ export default function AdminDashboard() {
     setSaveLoading(true);
     try {
       if (isEditing && questionForm.id) {
-        // Update existing question
-        const { error: questionError } = await supabase
+        // Update question
+        const { error: updateError } = await supabase
           .from("questions")
           .update({
             question_text: questionForm.question_text,
-            description: questionForm.description || null,
+            // description: questionForm.description || null,
             question_type: questionForm.question_type,
-            difficulty: questionForm.difficulty,
-            video_id: selectedVideo,
+            difficulty: questionForm.difficulty || null,
+            video_id: selectedVideo ? parseInt(selectedVideo) : null,
+            assessment_id: questionForm.assessment_id || null,
+            after_videoend: questionForm.after_videoend ?? null,
+            is_assessment: questionForm.is_assessment ?? null,
           })
           .eq("id", questionForm.id);
 
-        if (questionError) throw questionError;
+        if (updateError) throw updateError;
 
-        // For multiple-choice questions, update options
-        if (questionForm.question_type === "multiple-choice") {
-          // Delete existing options first
-          const { error: deleteError } = await supabase
-            .from("question_options")
-            .delete()
-            .eq("question_id", questionForm.id);
-
-          if (deleteError) throw deleteError;
-
-          // Add new options
-          const validOptions = questionForm.options.filter(
-            (opt) => opt.option_text.trim() !== ""
-          );
-
-          if (validOptions.length > 0) {
-            const optionsToInsert = validOptions.map((opt) => ({
-              question_id: questionForm.id,
-              option_text: opt.option_text,
-              is_correct: opt.is_correct,
-            }));
-
-            const { error: optionsError } = await supabase
-              .from("question_options")
-              .insert(optionsToInsert);
-
-            if (optionsError) throw optionsError;
-          }
-        }
-
-        toast.success("Question updated successfully");
+        // Delete and re-insert options (as you already did)
       } else {
-        // Create new question
-        const { data: newQuestion, error: questionError } = await supabase
+        // Insert new question
+        const { data: newQuestion, error: insertError } = await supabase
           .from("questions")
           .insert({
             question_text: questionForm.question_text,
-            description: questionForm.description || null,
+            // description: questionForm.description || null,
             question_type: questionForm.question_type,
-            difficulty: questionForm.difficulty,
-            video_id: selectedVideo,
-            course_id: selectedCourse,
+            difficulty: questionForm.difficulty || null,
+            video_id: selectedVideo ? parseInt(selectedVideo) : null,
+            assessment_id: questionForm.assessment_id || null,
+            after_videoend: questionForm.after_videoend ?? null,
+            is_assessment: questionForm.is_assessment ?? null,
           })
           .select()
           .single();
 
-        if (questionError) throw questionError;
+        if (insertError) throw insertError;
+
+        // Insert options
 
         // For multiple-choice questions, add options
         if (questionForm.question_type === "multiple-choice") {
@@ -739,7 +721,7 @@ export default function AdminDashboard() {
   };
 
   // Delete a question
-  const deleteQuestion = async (questionId: string) => {
+  const deleteQuestion = async (questionId: number) => {
     if (
       !confirm(
         "Are you sure you want to delete this question? This action cannot be undone."
@@ -939,12 +921,6 @@ export default function AdminDashboard() {
                                   </Badge>
                                 )}
                               </div>
-
-                              {question.description && (
-                                <p className="text-sm text-muted-foreground mt-1 break-words">
-                                  {question.description}
-                                </p>
-                              )}
                             </div>
 
                             <div className="flex gap-2 ml-2 flex-shrink-0">
@@ -1289,22 +1265,6 @@ export default function AdminDashboard() {
               />
             </div>
 
-            {/* Description */}
-            <div className="space-y-2">
-              <Label htmlFor="description">Description (Optional)</Label>
-              <Textarea
-                id="description"
-                value={questionForm.description}
-                onChange={(e) =>
-                  setQuestionForm({
-                    ...questionForm,
-                    description: e.target.value,
-                  })
-                }
-                placeholder="Add additional context for the question"
-              />
-            </div>
-
             {/* Question Type and Difficulty */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -1353,7 +1313,52 @@ export default function AdminDashboard() {
                 </Select>
               </div>
             </div>
+            {/* After Video End */}
+            <div className="flex items-center space-x-2">
+              <Switch
+                checked={!!questionForm.after_videoend}
+                onCheckedChange={(checked) =>
+                  setQuestionForm({
+                    ...questionForm,
+                    after_videoend: checked,
+                  })
+                }
+              />
+              <Label>Only show after video ends</Label>
+            </div>
 
+            {/* Is Assessment */}
+            <div className="flex items-center space-x-2">
+              <Switch
+                checked={!!questionForm.is_assessment}
+                onCheckedChange={(checked) =>
+                  setQuestionForm({
+                    ...questionForm,
+                    is_assessment: checked,
+                  })
+                }
+              />
+              <Label>This is part of an assessment</Label>
+            </div>
+
+            {/* Optional: Assessment ID Input */}
+            <div className="space-y-1">
+              <Label htmlFor="assessment_id">Assessment ID (optional)</Label>
+              <Input
+                id="assessment_id"
+                type="number"
+                value={questionForm.assessment_id || ""}
+                onChange={(e) =>
+                  setQuestionForm({
+                    ...questionForm,
+                    assessment_id: e.target.value
+                      ? parseInt(e.target.value)
+                      : null,
+                  })
+                }
+                placeholder="Enter assessment ID"
+              />
+            </div>
             {/* Options for Multiple-Choice Questions */}
             {questionForm.question_type === "multiple-choice" && (
               <div className="space-y-3">

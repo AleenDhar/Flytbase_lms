@@ -625,7 +625,8 @@ const TestPage = () => {
         const { data: questionsData, error: questionsError } = await supabase
           .from("questions")
           .select("*")
-          .eq("assessment_id", Number(id));
+          .eq("assessment_id", Number(id))
+          .eq("is_assessment", true);
 
         if (questionsError) {
           throw new Error(

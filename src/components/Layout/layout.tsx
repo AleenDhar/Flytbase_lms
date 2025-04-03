@@ -330,7 +330,44 @@ const Layout = ({ children }: LayoutProps) => {
       ],
     },
   ];
+  // Add this state variable with the existing state declarations
+  const [isAdmin, setIsAdmin] = useState(false);
 
+  // Add this useEffect to check if the user is an admin when the component mounts
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      try {
+        // Get current user
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError || !user) {
+          console.error("Error fetching user or user not found");
+          return;
+        }
+
+        // Check if user has admin privileges
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("is_admin")
+          .eq("id", user.id)
+          .single();
+
+        if (profileError) {
+          console.error("Error fetching profile:", profileError);
+          return;
+        }
+
+        setIsAdmin(profileData?.is_admin || false);
+      } catch (error) {
+        console.error("Error checking admin status:", error);
+      }
+    };
+
+    checkAdminStatus();
+  }, []);
   return (
     <div className="min-h-screen flex flex-col">
       <nav
@@ -371,6 +408,14 @@ const Layout = ({ children }: LayoutProps) => {
                 >
                   Courses
                 </Link>
+                {isAdmin && (
+                  <Link
+                    href="/admin/dashboard"
+                    className="px-3 py-2 rounded-md text-sm font-medium text-primary hover:bg-primary/10 transition-colors duration-300"
+                  >
+                    Admin Dashboard
+                  </Link>
+                )}
 
                 {/* Dropdown menu example */}
                 <div className="relative group">
@@ -468,6 +513,17 @@ const Layout = ({ children }: LayoutProps) => {
                   <span>Courses</span>
                 </span>
               </Link>
+              {isAdmin && (
+                <Link
+                  href="/admin/dashboard"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <span className="flex items-center gap-2 text-primary font-medium hover:bg-primary/10 transition-colors duration-300 py-3 px-3 rounded-md">
+                    <Users className="w-5 h-5" />
+                    <span>Admin Dashboard</span>
+                  </span>
+                </Link>
+              )}
 
               {/* More mobile menu items */}
               <div className="py-2 border-t border-border mt-2">

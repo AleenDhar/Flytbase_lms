@@ -121,7 +121,8 @@ const CourseDetail = () => {
     const { data: questionData, error: questionError } = await supabase
       .from("questions")
       .select("id, question_text, question_type")
-      .eq("video_id", videoRowId);
+      .eq("video_id", videoRowId)
+      .eq("after_videoend", true);
 
     if (questionError) {
       console.error("Error fetching questions:", questionError);
