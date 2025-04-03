@@ -312,8 +312,8 @@ export default function AdminDashboard() {
       const { data, error } = await supabase
         .from("videos")
         .select("*")
-        .eq("course_id", selectedCourse)
-        .order("title");
+        .eq("course_id", selectedCourse);
+      // .order("title");
 
       if (error) {
         throw error;
@@ -431,6 +431,7 @@ export default function AdminDashboard() {
     e.preventDefault();
     console.log("Sending playlist URL to server:", playlistUrl);
     // Clear previous status
+    setCourseCreationStatus({ type: null, message: "" });
 
     // Basic validation
     if (!playlistUrl.trim()) {
@@ -477,16 +478,19 @@ export default function AdminDashboard() {
         throw new Error(`Error: ${response.status}`);
       }
 
-      // Handle successful POST request - note that the course is not created yet,
-      // just the request to create it has been successfully sent
+      // Handle successful POST request
+      setCourseCreationStatus({
+        type: "success",
+        message:
+          "Request submitted successfully! The server will now process the playlist and create the course. This may take several minutes.",
+      });
 
       toast.success("Playlist URL submitted to server");
 
       // Clear the input
       setPlaylistUrl("");
 
-      // Refresh courses after a delay - note this might not show the new course yet
-      // as the server might still be processing
+      // Refresh courses after a delay
       setTimeout(() => {
         fetchCourses();
       }, 10000); // Give more time for the server to at least start processing
@@ -784,8 +788,8 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
+    <div className="container mx-auto py-8 px-4 sm:px-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold mb-1">Admin Dashboard</h1>
           <p className="text-muted-foreground">
@@ -794,18 +798,15 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
-        <TabsList className="grid grid-cols-4 sm:grid-cols-4 w-full">
-          <TabsTrigger value="video-questions" className="text-base py-3">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6 ">
+        <TabsList className="grid grid-cols-4 sm:grid-cols-4 w-full p-1 mb-4 h-full">
+          <TabsTrigger value="video-questions" className="text-base py-2 px-3">
             <VideoIcon className="mr-2 h-4 w-4" /> Video Questions
           </TabsTrigger>
-          <TabsTrigger value="create-course" className="text-base py-3">
+          <TabsTrigger value="create-course" className="text-base py-2 px-3">
             <PlusCircle className="mr-2 h-4 w-4" /> Create Course
           </TabsTrigger>
-          <TabsTrigger value="questions" className="text-base py-3">
-            <List className="mr-2 h-4 w-4" /> Question Bank
-          </TabsTrigger>
-          <TabsTrigger value="users" className="text-base py-3">
+          <TabsTrigger value="users" className="text-base py-2 px-3">
             <Users className="mr-2 h-4 w-4" /> User Management
           </TabsTrigger>
         </TabsList>
@@ -815,13 +816,13 @@ export default function AdminDashboard() {
           <div className="grid gap-6">
             {/* Course and Video Selection */}
             <Card>
-              <CardHeader>
+              <CardHeader className="pb-4">
                 <CardTitle className="flex items-center">
                   <GraduationCap className="mr-2 h-5 w-5" />
                   Select Course and Video
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 px-6">
                 {/* Course Selection */}
                 <div>
                   <Label htmlFor="course-select" className="mb-2 block">
@@ -883,7 +884,7 @@ export default function AdminDashboard() {
             {/* Question Management */}
             {selectedVideo && (
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
+                <CardHeader className="flex flex-row items-center justify-between pb-4">
                   <CardTitle className="flex items-center">
                     <FileQuestion className="mr-2 h-5 w-5" />
                     Questions for{" "}
@@ -895,7 +896,7 @@ export default function AdminDashboard() {
                     Add Question
                   </Button>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-6">
                   {loading ? (
                     <div className="space-y-4">
                       {[1, 2, 3].map((i) => (
@@ -924,9 +925,9 @@ export default function AdminDashboard() {
                           className="p-4 border rounded-md hover:bg-muted/20 transition-colors"
                         >
                           <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-start gap-2">
-                                <h3 className="font-medium">
+                            <div className="flex-1 pr-4">
+                              <div className="flex flex-wrap items-start gap-2">
+                                <h3 className="font-medium break-words">
                                   {question.question_text}
                                 </h3>
                                 <Badge variant="outline" className="text-xs">
@@ -940,13 +941,13 @@ export default function AdminDashboard() {
                               </div>
 
                               {question.description && (
-                                <p className="text-sm text-muted-foreground mt-1">
+                                <p className="text-sm text-muted-foreground mt-1 break-words">
                                   {question.description}
                                 </p>
                               )}
                             </div>
 
-                            <div className="flex gap-2 ml-4">
+                            <div className="flex gap-2 ml-2 flex-shrink-0">
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -986,11 +987,11 @@ export default function AdminDashboard() {
                                       <span className="w-5 text-center">
                                         {index + 1}.
                                       </span>
-                                      <span className="ml-1">
+                                      <span className="ml-1 break-words overflow-hidden">
                                         {option.option_text}
                                       </span>
                                       {option.is_correct && (
-                                        <CheckCircle2 className="ml-1 h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                                        <CheckCircle2 className="ml-1 h-3.5 w-3.5 flex-shrink-0 text-green-600 dark:text-green-400" />
                                       )}
                                     </div>
                                   ))}
@@ -1010,7 +1011,7 @@ export default function AdminDashboard() {
         {/* Create Course Tab */}
         <TabsContent value="create-course">
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-4">
               <CardTitle className="flex items-center">
                 <Youtube className="mr-2 h-5 w-5" />
                 Create Course from YouTube Playlist
@@ -1020,7 +1021,7 @@ export default function AdminDashboard() {
                 course with all the videos from the playlist.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-6">
               <form onSubmit={handleCreateCourse} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="playlist-url">YouTube Playlist URL</Label>
@@ -1074,7 +1075,7 @@ export default function AdminDashboard() {
                 )}
               </form>
             </CardContent>
-            <CardFooter className="border-t pt-6 flex flex-col items-start">
+            <CardFooter className="border-t pt-6 flex flex-col items-start px-6">
               <h3 className="font-medium mb-2">How it works:</h3>
               <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground pl-2">
                 <li>Enter a valid YouTube playlist URL</li>
@@ -1095,13 +1096,13 @@ export default function AdminDashboard() {
           {/* Recent Courses List */}
           {courses.length > 0 && (
             <Card className="mt-6">
-              <CardHeader>
+              <CardHeader className="pb-4">
                 <CardTitle className="flex items-center">
                   <GraduationCap className="mr-2 h-5 w-5" />
                   Recent Courses
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-0">
                 <div className="rounded-md border">
                   <Table>
                     <TableHeader>
@@ -1147,33 +1148,10 @@ export default function AdminDashboard() {
           )}
         </TabsContent>
 
-        {/* Question Bank Tab */}
-        <TabsContent value="questions">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <FileQuestion className="mr-2 h-5 w-5" />
-                Question Bank
-              </CardTitle>
-              <CardDescription>
-                Browse and search all questions across courses
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">
-                  Question bank functionality will be implemented in a future
-                  update.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         {/* User Management Tab */}
         <TabsContent value="users">
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-4">
               <CardTitle className="flex items-center">
                 <UserCog className="mr-2 h-5 w-5" />
                 User Management
@@ -1182,7 +1160,7 @@ export default function AdminDashboard() {
                 Manage user permissions and admin access
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-0">
               <div className="rounded-md border">
                 <Table>
                   <TableHeader>
@@ -1284,16 +1262,16 @@ export default function AdminDashboard() {
         </TabsContent>
       </Tabs>
 
-      {/* Question Add/Edit Dialog */}
+      {/* Question Add/Edit Dialog - Fixed for smaller screens */}
       <Dialog open={showQuestionDialog} onOpenChange={setShowQuestionDialog}>
-        <DialogContent className="max-w-[600px]">
-          <DialogHeader>
+        <DialogContent className="w-[95vw] max-w-[500px] max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="pb-2">
             <DialogTitle>
               {isEditing ? "Edit Question" : "Add New Question"}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="py-4 space-y-4">
+          <div className="py-3 space-y-4 overflow-y-auto pr-2 flex-1">
             {/* Question Text */}
             <div className="space-y-2">
               <Label htmlFor="question_text">Question Text</Label>
@@ -1306,7 +1284,7 @@ export default function AdminDashboard() {
                     question_text: e.target.value,
                   })
                 }
-                className="min-h-[100px]"
+                className="min-h-[80px]"
                 placeholder="Enter the question text"
               />
             </div>
@@ -1328,7 +1306,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* Question Type and Difficulty */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="question_type">Question Type</Label>
                 <Select
@@ -1393,60 +1371,58 @@ export default function AdminDashboard() {
                   </Button>
                 </div>
 
-                <ScrollArea className="h-[300px] pr-4">
-                  <div className="space-y-3">
-                    {questionForm.options.map((option, index) => (
-                      <div
-                        key={index}
-                        className="flex items-start space-x-2 p-3 border rounded-md"
-                      >
-                        <div className="pt-2">
-                          <Checkbox
-                            id={`option-correct-${index}`}
-                            checked={option.is_correct}
-                            onCheckedChange={(checked) =>
-                              handleOptionChange(index, "is_correct", !!checked)
+                <div className="space-y-3 max-h-[200px] overflow-y-auto pr-2">
+                  {questionForm.options.map((option, index) => (
+                    <div
+                      key={index}
+                      className="flex items-start space-x-2 p-3 border rounded-md"
+                    >
+                      <div className="pt-2">
+                        <Checkbox
+                          id={`option-correct-${index}`}
+                          checked={option.is_correct}
+                          onCheckedChange={(checked) =>
+                            handleOptionChange(index, "is_correct", !!checked)
+                          }
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Label
+                          htmlFor={`option-text-${index}`}
+                          className="mb-1 block"
+                        >
+                          Option {index + 1}
+                          {option.is_correct && " (Correct)"}
+                        </Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id={`option-text-${index}`}
+                            value={option.option_text}
+                            onChange={(e) =>
+                              handleOptionChange(
+                                index,
+                                "option_text",
+                                e.target.value
+                              )
                             }
+                            placeholder={`Option ${index + 1}`}
+                            className="flex-1"
                           />
-                        </div>
-                        <div className="flex-1">
-                          <Label
-                            htmlFor={`option-text-${index}`}
-                            className="mb-1 block"
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeOption(index)}
+                            disabled={questionForm.options.length <= 2}
+                            className="h-9 w-9 text-destructive hover:text-destructive"
                           >
-                            Option {index + 1}
-                            {option.is_correct && " (Correct)"}
-                          </Label>
-                          <div className="flex gap-2">
-                            <Input
-                              id={`option-text-${index}`}
-                              value={option.option_text}
-                              onChange={(e) =>
-                                handleOptionChange(
-                                  index,
-                                  "option_text",
-                                  e.target.value
-                                )
-                              }
-                              placeholder={`Option ${index + 1}`}
-                              className="flex-1"
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removeOption(index)}
-                              disabled={questionForm.options.length <= 2}
-                              className="h-10 w-10 text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </ScrollArea>
+                    </div>
+                  ))}
+                </div>
 
                 {/* Warning if no correct answer selected */}
                 {!questionForm.options.some((opt) => opt.is_correct) && (
@@ -1473,11 +1449,12 @@ export default function AdminDashboard() {
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="border-t pt-4 mt-4">
             <Button
               variant="outline"
               onClick={() => setShowQuestionDialog(false)}
               disabled={saveLoading}
+              className="mr-2"
             >
               Cancel
             </Button>
