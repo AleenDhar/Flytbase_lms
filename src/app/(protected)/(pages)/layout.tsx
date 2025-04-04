@@ -31,5 +31,12 @@ import { TestProvider } from "@/contexts/TestContext";
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  return <Layout>{children}</Layout>;
+  return (
+    <div>
+      {/* <Layout> */}
+
+      {children}
+      {/* </Layout>; */}
+    </div>
+  );
 }

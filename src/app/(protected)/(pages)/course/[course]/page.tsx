@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import YouTubeEmbed from "@/components/ui-custom/YouTubeEmbed";
 import { Separator } from "@/components/ui/separator";
 import { createClient } from "@/utils/supabase/client";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   PlayCircle,
   CheckCircle,
@@ -28,6 +29,14 @@ import {
   ChevronDown,
   ChevronUp,
   AlertCircle,
+  Menu,
+  ArrowRight,
+  AlignLeft,
+  List,
+  LayoutList,
+  Link as LinkIcon,
+  X,
+  Play,
 } from "lucide-react";
 
 interface Video {
@@ -71,6 +80,8 @@ const CourseDetail = () => {
     score: number;
     total: number;
   }>({ shown: false, score: 0, total: 0 });
+  const [tableOfContentsVisible, setTableOfContentsVisible] = useState(false);
+  const tocRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -114,6 +125,34 @@ const CourseDetail = () => {
       }
     }
   }, [currentVideoIndex, videos]);
+
+  // Close TOC when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        tocRef.current &&
+        !tocRef.current.contains(event.target as Node) &&
+        !(event.target as HTMLElement).closest("[data-menu-toggle]")
+      ) {
+        setTableOfContentsVisible(false);
+      }
+    };
+
+    // Close TOC when pressing Escape key
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setTableOfContentsVisible(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscKey);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscKey);
+    };
+  }, []);
 
   const fetchQuestionsForVideo = async (videoRowId: number) => {
     const supabase = createClient();
@@ -194,6 +233,7 @@ const CourseDetail = () => {
 
   const handleVideoSelect = (index: number) => {
     setCurrentVideoIndex(index);
+    setTableOfContentsVisible(false);
   };
 
   const handleVideoEnd = () => {
@@ -221,9 +261,13 @@ const CourseDetail = () => {
     return (completedVideos.size / videos.length) * 100;
   };
 
+  const toggleTableOfContents = () => {
+    setTableOfContentsVisible(!tableOfContentsVisible);
+  };
+
   if (loading) {
     return (
-      <div className="container max-w-6xl mx-auto px-4 py-12 flex flex-col items-center justify-center min-h-[70vh]">
+      <div className="container max-w-6xl mx-auto px-4 py-12 flex flex-col items-center justify-center min-h-[70vh] ">
         <div className="flex flex-col items-center gap-4">
           <div className="relative w-16 h-16">
             <div className="absolute top-0 left-0 w-full h-full border-4 border-primary/30 rounded-full"></div>
@@ -239,7 +283,7 @@ const CourseDetail = () => {
 
   if (!videos.length || !currentVideo) {
     return (
-      <div className="container max-w-6xl mx-auto px-4 py-12">
+      <div className="container max-w-6xl mx-auto px-4 py-12 ">
         <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
           <AlertCircle className="w-16 h-16 text-muted-foreground mb-4" />
           <h1 className="text-2xl font-bold mb-4">
@@ -266,52 +310,205 @@ const CourseDetail = () => {
       : text;
   };
 
+  // Extract the chapter name from the first video title
+  const getChapterName = () => {
+    const firstVideoTitle = videos[0]?.title || "";
+    const parts = firstVideoTitle.split(" - ");
+    if (parts.length > 1) {
+      return parts[0];
+    }
+    return "Chapter";
+  };
+
+  // Animation variants for the table of contents
+  const sidebarVariants = {
+    open: {
+      x: 0,
+      transition: {
+        type: "spring",
+        stiffness: 300,
+        damping: 30,
+      },
+    },
+    closed: {
+      x: "-100%",
+      transition: {
+        type: "spring",
+        stiffness: 300,
+        damping: 30,
+      },
+    },
+  };
+
+  // Animation variants for menu items
+  const menuItemVariants = {
+    open: {
+      y: 0,
+      opacity: 1,
+      transition: {
+        type: "spring",
+        stiffness: 300,
+        damping: 30,
+      },
+    },
+    closed: {
+      y: 20,
+      opacity: 0,
+      transition: {
+        type: "spring",
+        stiffness: 300,
+        damping: 30,
+      },
+    },
+  };
+
   return (
-    <div className="container max-w-6xl mx-auto px-4 py-8">
-      <div className="mb-6">
-        <Button
-          variant="ghost"
-          asChild
-          className="mb-2 -ml-3 text-muted-foreground hover:text-foreground transition-colors"
+    <div className="min-h-screen bg-[#121212] text-white mb-14">
+      {/* Table of Contents Sidebar with animated toggle button */}
+      <div className="fixed top-10   left-2 bottom-10 z-50 flex">
+        {/* Table of Contents with Toggle Button */}
+        <motion.div
+          initial={{ x: -392 }}
+          animate={{ x: tableOfContentsVisible ? 0 : -392 }}
+          transition={{
+            type: "spring",
+            stiffness: 300,
+            damping: 30,
+          }}
+          className="relative "
         >
-          <Link href="/course">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Courses
-          </Link>
-        </Button>
+          {/* Table of Contents Panel */}
+          <div
+            ref={tocRef}
+            className="bg-[#121212] border-r border-gray-800 shadow-lg w-96 h-full overflow-hidden flex flex-col rounded-2xl  bg-red-600"
+          >
+            {/* Header */}
+            <div className="p-4 border-b border-gray-800">
+              <div>
+                <h2 className="text-sm font-bold text-purple-400 uppercase tracking-wide">
+                  Chapter {String(course).padStart(2, "0")}
+                </h2>
+                <h3 className="text-2xl font-bold text-white mt-1">
+                  {getChapterName()}
+                </h3>
+              </div>
+            </div>
 
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 mb-2">
-          <h1 className="text-3xl font-bold tracking-tight">
-            {videos[0]?.title?.split(" - ")[0] || "Course"}
-          </h1>
-          <div className="flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">
-              {videos.length} videos
-            </span>
-            <span className="text-muted-foreground mx-1">•</span>
-            <Clock className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">
-              ~{videos.length * 5} min
-            </span>
+            {/* Sidebar Content */}
+            <div className="overflow-y-auto flex-1">
+              {videos.map((video, index) => {
+                const isCurrent = currentVideoIndex === index;
+                const isCompleted = completedVideos.has(video.id);
+
+                return (
+                  <div
+                    key={video.id}
+                    onClick={() => handleVideoSelect(index)}
+                    className={`
+                relative cursor-pointer transition-colors
+                ${isCurrent ? "bg-purple-900/30" : "hover:bg-gray-800/50"}
+              `}
+                  >
+                    {/* Purple highlight bar for current video */}
+                    {isCurrent && (
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-purple-500 rounded-r-sm" />
+                    )}
+
+                    <div className="flex items-center justify-between p-3">
+                      {/* Left: Icon + Title */}
+                      <div className="flex items-center space-x-3">
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center
+                      ${
+                        isCompleted
+                          ? "bg-green-500/20 text-green-400"
+                          : isCurrent
+                          ? "bg-purple-500/20 text-purple-400"
+                          : "bg-gray-800 text-gray-400"
+                      }
+                    `}
+                        >
+                          {isCompleted ? (
+                            <CheckCircle className="w-4 h-4" />
+                          ) : isCurrent ? (
+                            <Play className="w-4 h-4" />
+                          ) : (
+                            <span className="text-sm font-medium">
+                              {String(index + 1).padStart(2, "0")}
+                            </span>
+                          )}
+                        </div>
+
+                        <p
+                          className={`font-medium text-sm
+                      ${
+                        isCurrent
+                          ? "text-purple-400"
+                          : isCompleted
+                          ? "text-green-400"
+                          : "text-gray-300"
+                      }
+                    `}
+                        >
+                          {String(index + 1).padStart(2, "0")}.{" "}
+                          {video.title.split(" - ").pop() || video.title}
+                        </p>
+                      </div>
+
+                      {/* Right: Time + Badges */}
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-gray-500">
+                          {Math.floor(Math.random() * 20) + 20}:00
+                        </span>
+                        {isCurrent && (
+                          <Badge className="bg-purple-600 text-white text-xs py-0 px-2">
+                            Current
+                          </Badge>
+                        )}
+                        {video.id % 3 === 0 && (
+                          <Badge className="bg-blue-600 text-white text-xs py-0 px-2">
+                            Free
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2 mb-4">
-          {/* <Progress value={getProgressPercentage()} className="h-2" /> */}
-          {/* <span className="text-sm font-medium">
-            {Math.round(getProgressPercentage())}%
-          </span> */}
-        </div>
+          {/* Toggle Button that moves with the Table of Contents */}
+          <motion.button
+            data-menu-toggle
+            onClick={toggleTableOfContents}
+            className="absolute top-8 right-[-26] transform translate-x-1/2
+                bg-[#121212] rounded-r-xl border border-l-0 border-gray-800
+                hover:bg-gray-800 transition-colors h-14 w-14
+                flex items-center justify-center focus:outline-none"
+          >
+            {tableOfContentsVisible ? (
+              <X className="h-5 w-5 text-gray-300" />
+            ) : (
+              <Menu className="h-5 w-5 text-gray-300" />
+            )}
+          </motion.button>
+        </motion.div>
       </div>
+      {/* Main Content */}
+      <div className="w-full">
+        {/* Header */}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-          {/* Video Card */}
-          <Card className="overflow-hidden border-2 shadow-sm">
-            <div className="w-full relative">
-              <Badge className="absolute top-4 right-4 z-10">
-                Video {currentVideoIndex + 1} of {videos.length}
-              </Badge>
+        {/* Main Content Area */}
+        <div className="p-4 md:p-6 lg:p-8 max-w-6xl mx-auto">
+          {/* Video Section */}
+          <motion.div
+            className="mb-6"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="w-full relative rounded-lg overflow-hidden">
               <div className="aspect-video w-full bg-black overflow-hidden">
                 <YouTubeEmbed
                   videoId={currentVideo.youtube_video_id}
@@ -319,14 +516,47 @@ const CourseDetail = () => {
                 />
               </div>
             </div>
-            <CardHeader>
-              <CardTitle className="text-2xl">{currentVideo.title}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div>
+
+            <div className="mt-6 flex flex-wrap justify-between items-center">
+              <div className="mb-2 md:mb-0 w-full md:w-auto">
+                <h2 className="text-xl md:text-2xl font-bold text-white">
+                  {currentVideo.title}
+                </h2>
+              </div>
+
+              <div className="flex gap-2 w-full md:w-auto justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-gray-700 bg-gray-800 hover:bg-gray-700 text-white"
+                  onClick={() =>
+                    currentVideoIndex > 0 &&
+                    handleVideoSelect(currentVideoIndex - 1)
+                  }
+                  disabled={currentVideoIndex === 0}
+                >
+                  Previous
+                </Button>
+                <Button
+                  size="sm"
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                  onClick={() =>
+                    currentVideoIndex < videos.length - 1 &&
+                    handleVideoSelect(currentVideoIndex + 1)
+                  }
+                  disabled={currentVideoIndex === videos.length - 1}
+                >
+                  <span>Next lesson</span>
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {currentVideo.about && (
+              <div className="mt-4 bg-gray-900/50 p-4 rounded-lg">
                 <div className="flex justify-between items-start">
-                  <div className="prose max-w-none">
-                    <p className="text-muted-foreground">
+                  <div className="prose prose-invert max-w-none">
+                    <p className="text-gray-300">
                       {getTruncatedDescription(currentVideo.about)}
                     </p>
                   </div>
@@ -335,7 +565,7 @@ const CourseDetail = () => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="mt-2 text-primary"
+                    className="mt-2 text-purple-400 hover:text-purple-300 hover:bg-gray-800/50"
                     onClick={() => setDescriptionExpanded(!descriptionExpanded)}
                   >
                     {descriptionExpanded ? (
@@ -350,216 +580,235 @@ const CourseDetail = () => {
                   </Button>
                 )}
               </div>
-            </CardContent>
-          </Card>
+            )}
+          </motion.div>
 
-          {/* Quiz Card */}
-          <Card className="border-2 shadow-sm">
-            <CardHeader className="pb-3">
+          {/* Quiz Section */}
+          {questions.length > 0 && (
+            <motion.div
+              className="mt-8 rounded-lg border border-gray-800 bg-gray-900/30 overflow-hidden"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+            >
               <div
-                className="flex items-center justify-between cursor-pointer"
+                className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-800/30"
                 onClick={() => setQuizExpanded(!quizExpanded)}
               >
-                <CardTitle className="flex items-center gap-2">
-                  <span>Video Quiz</span>
-                  <Badge variant="outline">{questions.length} questions</Badge>
-                </CardTitle>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  {quizExpanded ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                </Button>
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center">
+                    <span>Video Quiz</span>
+                    <Badge className="ml-2 bg-purple-600 text-white border-none">
+                      {questions.length} questions
+                    </Badge>
+                  </h3>
+                  <p className="text-sm text-gray-400 mt-1">
+                    Test your understanding of the video content
+                  </p>
+                </div>
+                <motion.div
+                  animate={{ rotate: quizExpanded ? 180 : 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-gray-400 hover:text-white hover:bg-gray-800"
+                  >
+                    <ChevronDown className="h-5 w-5" />
+                  </Button>
+                </motion.div>
               </div>
-              <CardDescription>
-                Test your understanding of the video content
-              </CardDescription>
-            </CardHeader>
 
-            {quizExpanded && (
-              <>
-                {quizResults.shown ? (
-                  <CardContent>
-                    <div className="flex flex-col items-center text-center py-4">
-                      <div
-                        className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 ${
-                          quizResults.score === quizResults.total
-                            ? "bg-green-100 text-green-600"
-                            : quizResults.score >= quizResults.total / 2
-                            ? "bg-amber-100 text-amber-600"
-                            : "bg-red-100 text-red-600"
-                        }`}
-                      >
-                        <span className="text-3xl font-bold">
-                          {quizResults.score}/{quizResults.total}
-                        </span>
+              <AnimatePresence>
+                {quizExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {quizResults.shown ? (
+                      <div className="p-6 border-t border-gray-800">
+                        <div className="flex flex-col items-center text-center">
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ type: "spring", damping: 15 }}
+                            className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 ${
+                              quizResults.score === quizResults.total
+                                ? "bg-green-900/30 text-green-400"
+                                : quizResults.score >= quizResults.total / 2
+                                ? "bg-amber-900/30 text-amber-400"
+                                : "bg-red-900/30 text-red-400"
+                            }`}
+                          >
+                            <span className="text-3xl font-bold">
+                              {quizResults.score}/{quizResults.total}
+                            </span>
+                          </motion.div>
+                          <h3 className="text-xl font-bold mb-2 text-white">
+                            Quiz Results
+                          </h3>
+                          <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                            {quizResults.score === quizResults.total
+                              ? "Perfect score! You've mastered this section."
+                              : quizResults.score >= quizResults.total / 2
+                              ? "Good job! You're making progress."
+                              : "Keep learning. Review the video and try again."}
+                          </p>
+                          <div className="flex flex-wrap justify-center gap-3">
+                            <Button
+                              variant="outline"
+                              onClick={handleResetQuiz}
+                              className="border-gray-700 bg-gray-800 hover:bg-gray-700 text-white"
+                            >
+                              Try Again
+                            </Button>
+                            <Button
+                              onClick={handleQuizComplete}
+                              className="bg-purple-600 hover:bg-purple-700"
+                            >
+                              {currentVideoIndex < videos.length - 1
+                                ? "Next Video"
+                                : "Complete Course"}
+                            </Button>
+                          </div>
+                        </div>
                       </div>
-                      <h3 className="text-xl font-bold mb-2">Quiz Results</h3>
-                      <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                        {quizResults.score === quizResults.total
-                          ? "Perfect score! You've mastered this section."
-                          : quizResults.score >= quizResults.total / 2
-                          ? "Good job! You're making progress."
-                          : "Keep learning. Review the video and try again."}
-                      </p>
-                      <div className="flex flex-wrap justify-center gap-3">
-                        <Button variant="outline" onClick={handleResetQuiz}>
-                          Try Again
-                        </Button>
-                        <Button onClick={handleQuizComplete}>
-                          {currentVideoIndex < videos.length - 1
-                            ? "Next Video"
-                            : "Complete Course"}
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                ) : (
-                  <>
-                    <CardContent className="space-y-6">
-                      {questions.length > 0 ? (
-                        questions.map((question, qIndex) => (
-                          <div key={question.id} className="space-y-3">
-                            <h3 className="font-medium flex gap-2">
-                              <span className="bg-primary/10 text-primary rounded-full w-6 h-6 flex items-center justify-center text-sm flex-shrink-0">
-                                {qIndex + 1}
-                              </span>
-                              <span>{question.question_text}</span>
-                            </h3>
-                            <div className="ml-8 space-y-2">
-                              {options[question.id] &&
-                                options[question.id].map((option) => (
-                                  <div
-                                    key={option.id}
-                                    onClick={() =>
-                                      handleAnswerSelect(question.id, option.id)
-                                    }
-                                    className={`p-3 border rounded-lg flex items-center gap-2 cursor-pointer transition-all ${
-                                      selectedAnswers[question.id] === option.id
-                                        ? "border-primary bg-primary/5"
-                                        : "hover:border-primary/50"
-                                    }`}
-                                  >
-                                    <div
-                                      className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                    ) : (
+                      <>
+                        <div className="p-4 sm:p-6 border-t border-gray-800 space-y-6">
+                          {questions.map((question, qIndex) => (
+                            <motion.div
+                              key={question.id}
+                              className="space-y-3"
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: 0.1 * qIndex }}
+                            >
+                              <h3 className="font-medium flex gap-2 text-white">
+                                <span className="bg-purple-900/50 text-purple-400 rounded-full w-6 h-6 flex items-center justify-center text-sm flex-shrink-0">
+                                  {qIndex + 1}
+                                </span>
+                                <span>{question.question_text}</span>
+                              </h3>
+                              <div className="ml-8 space-y-2">
+                                {options[question.id] &&
+                                  options[question.id].map((option, oIndex) => (
+                                    <motion.div
+                                      key={option.id}
+                                      onClick={() =>
+                                        handleAnswerSelect(
+                                          question.id,
+                                          option.id
+                                        )
+                                      }
+                                      className={`p-3 border rounded-lg flex items-center gap-2 cursor-pointer transition-all ${
                                         selectedAnswers[question.id] ===
                                         option.id
-                                          ? "border-primary"
-                                          : "border-muted-foreground/30"
+                                          ? "border-purple-500 bg-purple-900/20"
+                                          : "border-gray-700 hover:border-purple-500/50 bg-gray-800/30"
                                       }`}
+                                      initial={{ opacity: 0, x: -10 }}
+                                      animate={{ opacity: 1, x: 0 }}
+                                      transition={{
+                                        delay: 0.1 * qIndex + 0.05 * oIndex,
+                                      }}
+                                      whileHover={{ x: 5 }}
                                     >
-                                      {selectedAnswers[question.id] ===
-                                        option.id && (
-                                        <div className="w-3 h-3 rounded-full bg-primary" />
-                                      )}
-                                    </div>
-                                    <label className="flex-1 cursor-pointer">
-                                      {option.option_text}
-                                    </label>
-                                  </div>
-                                ))}
-                            </div>
-                            {qIndex < questions.length - 1 && (
-                              <Separator className="mt-6" />
-                            )}
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-8">
-                          <p className="text-muted-foreground">
-                            No questions available for this video.
-                          </p>
+                                      <div
+                                        className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                                          selectedAnswers[question.id] ===
+                                          option.id
+                                            ? "border-purple-500"
+                                            : "border-gray-600"
+                                        }`}
+                                      >
+                                        {selectedAnswers[question.id] ===
+                                          option.id && (
+                                          <motion.div
+                                            className="w-3 h-3 rounded-full bg-purple-500"
+                                            initial={{ scale: 0 }}
+                                            animate={{ scale: 1 }}
+                                            transition={{
+                                              type: "spring",
+                                              damping: 10,
+                                            }}
+                                          />
+                                        )}
+                                      </div>
+                                      <label className="flex-1 cursor-pointer text-gray-300">
+                                        {option.option_text}
+                                      </label>
+                                    </motion.div>
+                                  ))}
+                              </div>
+                              {qIndex < questions.length - 1 && (
+                                <Separator className="bg-gray-800" />
+                              )}
+                            </motion.div>
+                          ))}
                         </div>
-                      )}
-                    </CardContent>
-                    <CardFooter className="flex flex-wrap gap-3 pt-2">
-                      <Button
-                        onClick={handleQuizSubmit}
-                        disabled={!isQuizComplete()}
-                        className="w-full sm:w-auto"
-                      >
-                        Submit Answers
-                      </Button>
-                    </CardFooter>
-                  </>
+                        <div className="p-4 border-t border-gray-800 flex justify-end">
+                          <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.3 }}
+                          >
+                            <Button
+                              onClick={handleQuizSubmit}
+                              disabled={!isQuizComplete()}
+                              className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-800 disabled:text-gray-500"
+                            >
+                              Submit Answers
+                            </Button>
+                          </motion.div>
+                        </div>
+                      </>
+                    )}
+                  </motion.div>
                 )}
-              </>
-            )}
-          </Card>
+              </AnimatePresence>
+            </motion.div>
+          )}
         </div>
+      </div>
 
-        <div>
-          <Card className="sticky top-6 border-2 shadow-sm">
-            <CardHeader>
-              <CardTitle>Course Content</CardTitle>
-              <CardDescription className="flex items-center justify-between">
-                <span>{videos.length} videos</span>
-                <span className="text-sm font-medium">
-                  {completedVideos.size} completed
-                </span>
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2 -mr-2">
-                {videos.map((video, index) => (
-                  <div
-                    key={video.id}
-                    onClick={() => handleVideoSelect(index)}
-                    className={`p-3 rounded-lg cursor-pointer border transition-all ${
-                      currentVideoIndex === index
-                        ? "bg-primary/10 border-primary/30"
-                        : completedVideos.has(video.id)
-                        ? "bg-green-50/50 border-green-200/50"
-                        : "border-muted hover:border-muted-foreground/30"
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="relative">
-                        <img
-                          src={
-                            video.thumbnail ||
-                            `https://i.ytimg.com/vi/${video.youtube_video_id}/mqdefault.jpg`
-                          }
-                          alt={video.title}
-                          className="w-20 h-12 rounded-md object-cover"
-                        />
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-md">
-                          {completedVideos.has(video.id) ? (
-                            <CheckCircle className="w-6 h-6 text-green-400" />
-                          ) : (
-                            <PlayCircle className="w-6 h-6 text-white" />
-                          )}
-                        </div>
-                        <div className="absolute bottom-1 right-1 bg-black/70 text-white text-xs px-1 rounded">
-                          {index + 1}
-                        </div>
-                      </div>
-                      <div>
-                        <p
-                          className={`font-medium text-sm ${
-                            currentVideoIndex === index
-                              ? "text-primary"
-                              : completedVideos.has(video.id)
-                              ? "text-green-700"
-                              : ""
-                          }`}
-                        >
-                          {video.title}
-                        </p>
-                        {completedVideos.has(video.id) && (
-                          <span className="flex items-center text-xs text-green-600 mt-1">
-                            <CheckCircle className="w-3 h-3 mr-1" /> Completed
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+      {/* Bottom footer with links */}
+      <div className="fixed bottom-0 left-0 right-0 bg-[#161616] border-t border-gray-800 px-4 py-3 flex justify-between items-center z-10">
+        <div className="flex items-center space-x-4">
+          <Button
+            variant="link"
+            size="sm"
+            className="text-purple-400 hover:text-purple-300 text-xs sm:text-sm p-0"
+          >
+            Lesson's links
+          </Button>
+          <Button
+            variant="link"
+            size="sm"
+            className="text-purple-400 hover:text-purple-300 text-xs sm:text-sm p-0"
+            onClick={toggleTableOfContents}
+          >
+            Table of content
+          </Button>
         </div>
+        <div>
+          <span className="text-xs sm:text-sm text-gray-400">
+            {currentVideoIndex + 1}/{videos.length}
+          </span>
+        </div>
+      </div>
+
+      {/* Progress Bar */}
+      <div className="fixed bottom-0 left-0 right-0 h-1 bg-gray-800 z-20">
+        <motion.div
+          className="h-full bg-gradient-to-r from-purple-500 to-blue-500"
+          initial={{ width: 0 }}
+          animate={{ width: `${getProgressPercentage()}%` }}
+          transition={{ duration: 0.5 }}
+        />
       </div>
     </div>
   );
