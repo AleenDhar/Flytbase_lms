@@ -33,10 +33,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <div>
-      {/* <Layout> */}
-
-      {children}
-      {/* </Layout>; */}
+      <Layout>{children}</Layout>;
     </div>
   );
 }
