@@ -62,6 +62,8 @@ interface Option {
 }
 
 const CourseDetail = () => {
+  // Add this state variable
+  const [videoProgressMap, setVideoProgressMap] = useState({});
   // Add these new state variables at the beginning of your component
   const [user, setUser] = useState(null);
   const [videoProgress, setVideoProgress] = useState(0);
@@ -88,12 +90,13 @@ const CourseDetail = () => {
     score: number;
     total: number;
   }>({ shown: false, score: 0, total: 0 });
-  const [tableOfContentsVisible, setTableOfContentsVisible] = useState(true);
+  const [tableOfContentsVisible, setTableOfContentsVisible] = useState(false);
   // New state for the lesson completed modal
   const [lessonCompletedModal, setLessonCompletedModal] = useState(false);
   // New state for the progress percentage
   const [progressPercentage, setProgressPercentage] = useState(0);
-
+  // Add this near your other state variables
+  const [initialVideoLoaded, setInitialVideoLoaded] = useState(false);
   const tocRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -209,6 +212,82 @@ const CourseDetail = () => {
     // your other functions here
     shootCash();
   };
+  // Add this function to your component
+  const findLastWatchedVideoIndex = (progressMap, videos) => {
+    // First try to find any video in progress (not completed, but has progress)
+    for (let i = videos.length - 1; i >= 0; i--) {
+      const videoId = videos[i].id;
+      const progress = progressMap[videoId] || 0;
+      const isCompleted = completedVideos.has(videoId);
+
+      // If it has progress but is not completed, return this one
+      if (progress > 0 && progress < 90 && !isCompleted) {
+        return i;
+      }
+    }
+
+    // If no in-progress video found, find the latest completed video
+    // and return the one after it (if any)
+    let lastCompletedIndex = -1;
+    for (let i = 0; i < videos.length; i++) {
+      if (completedVideos.has(videos[i].id)) {
+        lastCompletedIndex = i;
+      }
+    }
+
+    // If we found a completed video and it's not the last one,
+    // return the next one
+    if (lastCompletedIndex >= 0 && lastCompletedIndex < videos.length - 1) {
+      return lastCompletedIndex + 1;
+    }
+
+    // If no progress at all, or all videos completed, return the first video
+    return 0;
+  };
+  useEffect(() => {
+    const fetchAllVideoProgress = async () => {
+      if (!user || !videos.length) return;
+
+      const supabase = createClient();
+
+      // Fetch progress for all videos in this course
+      const { data } = await supabase
+        .from("video_watched")
+        .select("*")
+        .eq("user_id", user.id)
+        .in(
+          "video_id",
+          videos.map((v) => v.id)
+        );
+
+      if (data && data.length > 0) {
+        const progressMap = {};
+        const completed = new Set<number>();
+
+        data.forEach((item) => {
+          progressMap[item.video_id] = item.progress_percentage || 0;
+
+          if (item.completed) {
+            completed.add(item.video_id);
+          }
+        });
+
+        setVideoProgressMap(progressMap);
+        setCompletedVideos(completed);
+
+        // Only set the initial video based on progress if we haven't done it yet
+        if (!initialVideoLoaded) {
+          const bestVideoIndex = findLastWatchedVideoIndex(progressMap, videos);
+          setCurrentVideoIndex(bestVideoIndex);
+          setInitialVideoLoaded(true);
+        }
+      }
+    };
+
+    if (user && videos.length > 0) {
+      fetchAllVideoProgress();
+    }
+  }, [user, videos, initialVideoLoaded]);
   // Add this useEffect to fetch user and progress data
   useEffect(() => {
     const fetchUserAndProgress = async () => {
@@ -228,16 +307,19 @@ const CourseDetail = () => {
           .single();
 
         if (videoData) {
-          setVideoProgress(videoData.progress_percentage || 0);
-          setLastPosition(videoData.last_position_seconds || 0);
-
           // If video was already completed, add to completedVideos set
           if (videoData.completed) {
+            setLastPosition(0); // Start from beginning for completed videos
+            setVideoProgress(100); // Keep progress at 100%
+
             setCompletedVideos((prev) => {
               const newSet = new Set(prev);
               newSet.add(currentVideo.id);
               return newSet;
             });
+          } else {
+            setLastPosition(videoData.last_position_seconds || 0);
+            setVideoProgress(videoData.progress_percentage || 0);
           }
         }
 
@@ -295,7 +377,8 @@ const CourseDetail = () => {
         console.error("Error fetching videos:", error);
       } else {
         setVideos(data);
-        setCurrentVideoIndex(0);
+        // We'll set currentVideoIndex after we have the progress data
+        // Just set the default to the first video for now
         setCurrentVideo(data[0] || null);
       }
       setLoading(false);
@@ -424,13 +507,26 @@ const CourseDetail = () => {
   const updateVideoProgress = async (currentTime, duration) => {
     if (!user || !currentVideo) return;
 
+    // Check if the video is already completed
+    const isAlreadyCompleted = completedVideos.has(currentVideo.id);
+
+    // Calculate progress percentage
     const progressPercentage = Math.floor((currentTime / duration) * 100);
-    const completed = progressPercentage > 90; // Consider video completed if watched >90%
+    // Consider video completed if watched >90%
+    const completed = progressPercentage > 90 || isAlreadyCompleted;
+
+    // Update the progress map (but keep at 100 if already completed)
+    setVideoProgressMap((prev) => ({
+      ...prev,
+      [currentVideo.id]: isAlreadyCompleted ? 100 : progressPercentage,
+    }));
 
     // Only update database every 5 seconds or on significant progress changes
+    // But skip the update entirely if it's already completed
     if (
-      Math.abs(progressPercentage - videoProgress) > 5 ||
-      Math.abs(currentTime - lastPosition) > 5
+      !isAlreadyCompleted &&
+      (Math.abs(progressPercentage - videoProgress) > 5 ||
+        Math.abs(currentTime - lastPosition) > 5)
     ) {
       setVideoProgress(progressPercentage);
       setLastPosition(currentTime);
@@ -575,9 +671,42 @@ const CourseDetail = () => {
     }
   };
 
-  const handleVideoSelect = (index: number) => {
+  // Update your handleVideoSelect function to fetch the last position for the selected video
+  // Update your handleVideoSelect function to check completed status
+  const handleVideoSelect = async (index: number) => {
     setCurrentVideoIndex(index);
-    // setTableOfContentsVisible(false);
+    const selectedVideo = videos[index];
+
+    // Reset position until we fetch the correct one
+    setLastPosition(0);
+
+    // If user is logged in, fetch their progress for this specific video
+    if (user && selectedVideo) {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("video_watched")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("video_id", selectedVideo.id)
+        .single();
+
+      if (data) {
+        // Check if the video is completed
+        if (data.completed) {
+          // For completed videos, start from the beginning
+          setLastPosition(0);
+          setVideoProgress(100); // Keep progress at 100%
+        } else {
+          // For in-progress videos, start from the last position
+          setLastPosition(data.last_position_seconds || 0);
+          setVideoProgress(data.progress_percentage || 0);
+        }
+      } else {
+        // No progress for this video yet
+        setLastPosition(0);
+        setVideoProgress(0);
+      }
+    }
   };
 
   // Modified to mark video as completed and show the completion modal
@@ -692,6 +821,77 @@ const CourseDetail = () => {
       </div>
     );
   }
+  const CircularProgress = ({
+    progress = 0,
+    completed = false,
+    isActive = false,
+    videoNumber = "", // Add this prop to replace index
+  }) => {
+    const radius = 10;
+    const circumference = 2 * Math.PI * radius;
+    const strokeDashoffset = circumference - (progress / 100) * circumference;
+
+    return (
+      <div className="relative w-8 h-8 flex items-center justify-center">
+        {/* Background circle */}
+        <svg className="w-8 h-8 absolute top-0 left-0">
+          <circle
+            cx="16"
+            cy="16"
+            r={radius}
+            stroke="#333"
+            strokeWidth="2"
+            fill="transparent"
+          />
+        </svg>
+
+        {/* Progress circle */}
+        <svg className="w-8 h-8 absolute top-0 left-0 -rotate-90">
+          <circle
+            cx="16"
+            cy="16"
+            r={radius}
+            stroke={
+              completed
+                ? "#10b981" // green
+                : isActive
+                ? "#2C7BF2" // blue
+                : "#64748b" // gray
+            }
+            strokeWidth="2"
+            fill="transparent"
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+          />
+        </svg>
+
+        {/* Icon in the center */}
+        <div className=" z-10">
+          {
+            completed ? (
+              <CheckCircle className="w-4 h-4 text-green-400 flex justify-center items-center" />
+            ) : isActive ? (
+              <Play className="w-4 h-4 text-[#2C7BF2]" />
+            ) : (
+              <span className="w-4 h-4 flex justify-center items-center text-xs font-medium text-gray-400">
+                {videoNumber}
+              </span>
+            )
+            //  progress > 0 ? (
+            //   <span className="text-xs font-medium text-gray-400">
+            //     {Math.round(progress)}%
+            //   </span>
+            // ) : (
+            //   <span className="text-xs font-medium text-gray-400">
+            //     {videoNumber}
+            //   </span>
+            // )
+          }
+        </div>
+      </div>
+    );
+  };
   const NextVideoComponent = ({ nextVideo, onContinue }) => {
     if (!nextVideo) return null;
 
@@ -851,7 +1051,7 @@ const CourseDetail = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white mb-14">
+    <div className="min-h-screen bg-[#121212] text-white pb-14">
       {/* Lesson Completed Modal */}
       <AnimatePresence>
         {lessonCompletedModal && (
@@ -972,7 +1172,7 @@ const CourseDetail = () => {
           {/* Header */}
           <div className="p-4 border-b border-gray-800 bg-[#1A1A1A] rounded-2xl">
             <div>
-              <h2 className="text-xl font-bold text-[#2C7BF2] uppercase tracking-wide">
+              <h2 className="text-xl font-bold text-[#2C7BF2]  tracking-wide">
                 <p className="text-sm font-bold text-white mt-1">Course</p>{" "}
                 {courseTitle}
               </h2>
@@ -984,58 +1184,42 @@ const CourseDetail = () => {
             {videos.map((video, index) => {
               const isCurrent = currentVideoIndex === index;
               const isCompleted = completedVideos.has(video.id);
+              const progress = videoProgressMap[video.id] || 0;
 
               return (
                 <div
                   key={video.id}
                   onClick={() => handleVideoSelect(index)}
                   className={`
-                relative cursor-pointer transition-colors 
-                ${isCurrent ? "bg-[#2C7BF2]/30" : "hover:bg-gray-800/50"}
-              `}
+        relative cursor-pointer transition-colors 
+        ${isCurrent ? "bg-[#2C7BF2]/30" : "hover:bg-gray-800/50"}
+      `}
                 >
                   {/* Purple highlight bar for current video */}
                   {isCurrent && (
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#2C7BF2]rounded-r-sm" />
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#2C7BF2] rounded-r-sm" />
                   )}
 
                   <div className="flex items-center justify-between p-3">
                     {/* Left: Icon + Title */}
                     <div className="flex items-center space-x-3">
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center
-                      ${
-                        isCompleted
-                          ? "bg-green-500/20 text-green-400"
-                          : isCurrent
-                          ? "bg-[#0E61DD]/20 text-[#2C7BF2]"
-                          : "bg-gray-800 text-gray-400"
-                      }
-                    `}
-                      >
-                        {isCompleted ? (
-                          <CheckCircle className="w-4 h-4" />
-                        ) : isCurrent ? (
-                          <Play className="w-4 h-4" />
-                        ) : (
-                          <span className="text-sm font-medium">
-                            {String(index + 1).padStart(2, "0")}
-                          </span>
-                        )}
-                      </div>
+                      <CircularProgress
+                        progress={progress}
+                        completed={isCompleted}
+                        isActive={isCurrent}
+                        videoNumber={String(index + 1).padStart(2, "0")}
+                      />
 
                       <p
                         className={`font-medium text-sm
-                      ${
-                        isCurrent
-                          ? // ? "text-[#2C7BF2]"
-                            "text-white"
-                          : isCompleted
-                          ? // ? "text-green-400"
-                            "text-gray-300"
-                          : "text-gray-300"
-                      }
-                    `}
+              ${
+                isCurrent
+                  ? "text-white"
+                  : isCompleted
+                  ? "text-gray-300"
+                  : "text-gray-300"
+              }
+            `}
                       >
                         {String(index + 1).padStart(2, "0")}.{" "}
                         {video.title.split(" - ").pop() || video.title}
@@ -1044,7 +1228,12 @@ const CourseDetail = () => {
 
                     {/* Right: Time + Badges */}
                     <div className="flex items-center space-x-2">
-                      {/* Additional badges could go here */}
+                      {/* {progress > 0 && progress < 90 && !isCompleted && (
+                        <span className="text-xs text-gray-400">
+                          quiz pending
+                        </span>
+                      )} */}
+                      {/* <Badge>quiz pending</Badge> */}
                     </div>
                   </div>
                 </div>
@@ -1071,9 +1260,9 @@ const CourseDetail = () => {
       </motion.div>
 
       {/* Main Content */}
-      <div className="w-full">
+      <div className="w-full p-4">
         {/* Main Content Area */}
-        <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto ">
+        <div className=" max-w-6xl mx-auto ">
           {/* Video Section */}
           <motion.div
             className="mb-6"
@@ -1383,7 +1572,7 @@ const CourseDetail = () => {
         </div>
       </div>
       {/* Bottom footer with links */}
-      <div className="fixed bottom-0 left-0 right-0 bg-[#161616] border-t border-gray-800 px-4 py-3 flex justify-between items-center z-10">
+      {/* <div className="fixed bottom-0 left-0 right-0 bg-[#161616] border-t border-gray-800 px-4 py-3 flex justify-between items-center z-10">
         <div className="flex items-center space-x-4">
           <Button
             variant="link"
@@ -1406,7 +1595,7 @@ const CourseDetail = () => {
             {currentVideoIndex + 1}/{videos.length}
           </span>
         </div>
-      </div>
+      </div> */}
 
       {/* Progress Bar */}
       <div className="fixed bottom-0 left-0 right-0 h-1 bg-gray-800 z-20">

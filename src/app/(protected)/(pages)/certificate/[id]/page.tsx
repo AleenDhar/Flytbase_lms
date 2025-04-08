@@ -119,6 +119,14 @@ const Certificate = () => {
   const supabase = createClient();
 
   // State variables
+  // Add this to your state variables
+  // Add these state variables to your component
+  const [videoAnswers, setVideoAnswers] = useState({});
+  const [videoCorrectAnswers, setVideoCorrectAnswers] = useState({});
+  const [videoTotalQuestions, setVideoTotalQuestions] = useState({});
+  const [completedQuizzes, setCompletedQuizzes] = useState<Set<number>>(
+    new Set()
+  );
   const [loading, setLoading] = useState(true);
   const [courseTitle, setCourseTitle] = useState("Loading...");
   const [courseDescription, setCourseDescription] = useState("");
@@ -147,12 +155,15 @@ const Certificate = () => {
   );
 
   // Fetch course data
+  // Fetch course data
+  // Fetch course data
   useEffect(() => {
+    // Replace your sequential queries with this optimized version
     const fetchCourseData = async () => {
       try {
         setLoading(true);
 
-        // Fetch course details
+        // Fetch course details with a single query
         const { data: courseData, error: courseError } = await supabase
           .from("courses")
           .select("id, title, description")
@@ -169,93 +180,79 @@ const Certificate = () => {
           setCourseDescription(courseData.description || "");
         }
 
-        // Fetch all videos for this course
-        const { data: videosData, error: videosError } = await supabase
-          .from("videos")
-          .select("*")
-          .eq("course_id", courseId)
-          .order("id");
-
-        if (videosError) {
-          console.error("Error fetching videos:", videosError);
-          return;
-        }
+        // Fetch videos and assessments in parallel
+        const [videosResponse, assessmentsResponse, userResponse] =
+          await Promise.all([
+            supabase
+              .from("videos")
+              .select("*")
+              .eq("course_id", courseId)
+              .order("id"),
+            supabase
+              .from("assessments")
+              .select("*")
+              .eq("course_id", courseId)
+              .order("id"),
+            supabase.auth.getUser(),
+          ]);
 
         // Process videos
-        if (videosData && videosData.length > 0) {
-          setVideos(videosData);
+        if (videosResponse.error) {
+          console.error("Error fetching videos:", videosResponse.error);
+        } else if (videosResponse.data && videosResponse.data.length > 0) {
+          setVideos(videosResponse.data);
 
           // Set initial current video
-          if (videosData.length > 0) {
-            setCurrentVideo(videosData[0]);
-            // Fetch questions for the first video
-            fetchQuestionsForVideo(videosData[0].id);
-          }
+          setCurrentVideo(videosResponse.data[0]);
         }
 
-        // Fetch assessments for this course
-        const { data: assessmentsData, error: assessmentsError } =
-          await supabase
-            .from("assessments")
-            .select("*")
-            .eq("course_id", courseId)
-            .order("id");
-
-        if (assessmentsError) {
-          console.error("Error fetching assessments:", assessmentsError);
-        } else if (assessmentsData && assessmentsData.length > 0) {
-          setAssessments(assessmentsData);
-
-          // If needed, fetch assessment questions for the first assessment
-          if (assessmentsData.length > 0) {
-            setCurrentAssessment(assessmentsData[0]);
-            await fetchAssessmentQuestions(assessmentsData[0].id);
-          }
+        // Process assessments
+        if (assessmentsResponse.error) {
+          console.error(
+            "Error fetching assessments:",
+            assessmentsResponse.error
+          );
+        } else if (
+          assessmentsResponse.data &&
+          assessmentsResponse.data.length > 0
+        ) {
+          setAssessments(assessmentsResponse.data);
+          setCurrentAssessment(assessmentsResponse.data[0]);
         }
 
-        // Fetch user progress if user is logged in
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+        // If user is logged in, fetch progress data
+        const user = userResponse.data.user;
+        if (user && videosResponse.data) {
+          const videoIds = videosResponse.data.map((v) => v.id);
 
-        if (user) {
-          const { data: enrollmentData, error: enrollmentError } =
+          const { data: completedVideosData, error: completedVideosError } =
             await supabase
-              .from("course_enrollments")
-              .select("*")
+              .from("video_watched")
+              .select("video_id, quiz_taken")
               .eq("user_id", user.id)
-              .eq("course_id", courseId)
-              .single();
+              .in("video_id", videoIds);
 
-          if (enrollmentData) {
-            // Now fetch completed videos or progress data
-            const { data: progressData, error: progressError } = await supabase
-              .from("user_answers") // Assuming this tracks which videos/questions were completed
-              .select("question_id, selected_option_id")
-              .eq("user_id", user.id);
+          if (completedVideosError) {
+            console.error(
+              "Error fetching completed videos:",
+              completedVideosError
+            );
+          } else if (completedVideosData) {
+            // Create a Set of completed video IDs
+            const completedVideoIds = new Set(
+              completedVideosData
+                .filter((item) => item.quiz_taken)
+                .map((item) => item.video_id)
+            );
 
-            if (progressData && progressData.length > 0) {
-              // Process progress data
-              const completedVideoIds = new Set<number>();
-
-              // Logic to determine which videos are completed based on user answers
-              // This is a placeholder - implement according to your actual data model
-              progressData.forEach(async (answer) => {
-                // Find the question for this answer
-                const { data: questionData } = await supabase
-                  .from("questions")
-                  .select("*")
-                  .eq("id", answer.question_id)
-                  .single();
-
-                if (questionData && questionData.video_id) {
-                  completedVideoIds.add(questionData.video_id);
-                }
-              });
-
-              setUserProgress(completedVideoIds);
-            }
+            // Update user progress state
+            setUserProgress(completedVideoIds);
           }
+        }
+
+        // Finally, fetch questions for the initial video
+        if (videosResponse.data && videosResponse.data.length > 0) {
+          await fetchQuestionsForVideo(videosResponse.data[0].id, user);
         }
 
         setLoading(false);
@@ -265,13 +262,57 @@ const Certificate = () => {
       }
     };
 
+    // Separate function to fetch user progress
+    const fetchUserProgress = async (courseVideoIds) => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          // Fetch videos with quiz_taken true
+          const { data: completedVideosData, error: completedVideosError } =
+            await supabase
+              .from("video_watched")
+              .select("video_id")
+              .eq("user_id", user.id)
+              .eq("quiz_taken", true);
+
+          if (completedVideosError) {
+            console.error(
+              "Error fetching completed videos:",
+              completedVideosError
+            );
+            return;
+          }
+
+          if (completedVideosData) {
+            // Filter completed videos to only include ones from this course
+            const filteredCompletedVideos = completedVideosData.filter((item) =>
+              courseVideoIds.includes(item.video_id)
+            );
+
+            // Create a Set of completed video IDs
+            const completedVideoIds = new Set(
+              filteredCompletedVideos.map((item) => item.video_id)
+            );
+
+            // Update user progress state
+            setUserProgress(completedVideoIds);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching user progress:", error);
+      }
+    };
+
     if (courseId) {
       fetchCourseData();
     }
   }, [courseId]);
 
-  // Fetch questions for a specific video
-  const fetchQuestionsForVideo = async (videoId: number) => {
+  // Optimized question fetching
+  const fetchQuestionsForVideo = async (videoId, user = null) => {
     try {
       // Fetch questions for this video where after_videoend is true
       const { data: questionsData, error: questionsError } = await supabase
@@ -287,30 +328,63 @@ const Certificate = () => {
 
       setQuestions(questionsData || []);
 
-      // Fetch options for each question
-      const options: { [key: number]: QuestionOption[] } = {};
+      if (questionsData && questionsData.length > 0) {
+        // Get all question IDs
+        const questionIds = questionsData.map((q) => q.id);
 
-      for (const question of questionsData || []) {
-        const { data: optionsData, error: optionsError } = await supabase
+        // Fetch all options for these questions in a single query
+        const { data: allOptionsData, error: optionsError } = await supabase
           .from("question_options")
           .select("*")
-          .eq("question_id", question.id);
+          .in("question_id", questionIds);
 
         if (optionsError) {
-          console.error(
-            `Error fetching options for question ${question.id}:`,
-            optionsError
-          );
-        } else {
-          options[question.id] = optionsData || [];
+          console.error("Error fetching options:", optionsError);
+          return;
+        }
+
+        // Group options by question_id
+        const optionsByQuestion = {};
+        allOptionsData.forEach((option) => {
+          if (!optionsByQuestion[option.question_id]) {
+            optionsByQuestion[option.question_id] = [];
+          }
+          optionsByQuestion[option.question_id].push(option);
+        });
+
+        setQuestionOptions(optionsByQuestion);
+
+        // If user is logged in, fetch previous answers
+        if (user) {
+          const { data: userAnswersData, error: userAnswersError } =
+            await supabase
+              .from("user_answers")
+              .select("question_id, selected_option_id")
+              .eq("user_id", user.id)
+              .in("question_id", questionIds)
+              .order("created_at", { ascending: false });
+
+          if (userAnswersError) {
+            console.error("Error fetching user answers:", userAnswersError);
+            return;
+          }
+
+          // Create a map of the most recent answers for each question
+          const previousAnswersMap = {};
+          userAnswersData.forEach((answer) => {
+            // Only set the answer if it hasn't been set yet (keeping the most recent)
+            if (!previousAnswersMap[answer.question_id]) {
+              previousAnswersMap[answer.question_id] =
+                answer.selected_option_id;
+            }
+          });
+
+          // Pre-fill answers if we have previous ones
+          if (Object.keys(previousAnswersMap).length > 0) {
+            setSelectedAnswers(previousAnswersMap);
+          }
         }
       }
-
-      setQuestionOptions(options);
-
-      // Reset selected answers
-      setSelectedAnswers({});
-      setQuizResults({ shown: false, score: 0, total: 0 });
     } catch (error) {
       console.error("Error in fetchQuestionsForVideo:", error);
     }
@@ -319,25 +393,40 @@ const Certificate = () => {
   // Function to fetch assessment questions
   const fetchAssessmentQuestions = async (assessmentId: number) => {
     try {
-      // Fetch questions for this assessment
+      // First, check if the assessment exists
+      const { data: assessment, error: assessmentError } = await supabase
+        .from("assessments")
+        .select("*")
+        .eq("id", assessmentId)
+        .single();
+
+      if (assessmentError) {
+        console.error("Error fetching assessment:", assessmentError);
+        return;
+      }
+
+      // Try to fetch questions from questions table instead
+      // Assuming questions might be linked to assessments through an assessment_id field
       const { data: questionsData, error: questionsError } = await supabase
-        .from("assessment_questions")
+        .from("questions")
         .select("*")
         .eq("assessment_id", assessmentId);
 
+      // If that fails too, just set empty questions
       if (questionsError) {
-        console.error("Error fetching assessment questions:", questionsError);
+        console.error("Could not fetch assessment questions:", questionsError);
+        setCurrentAssessment({
+          ...assessment,
+          questions: [],
+        });
         return;
       }
 
       // Update the current assessment with its questions
       if (questionsData && questionsData.length > 0) {
-        setCurrentAssessment((prev) => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            questions: questionsData,
-          };
+        setCurrentAssessment({
+          ...assessment,
+          questions: questionsData,
         });
 
         // Fetch options for each question
@@ -349,7 +438,7 @@ const Certificate = () => {
 
           if (optionsError) {
             console.error(
-              `Error fetching options for assessment question ${question.id}:`,
+              `Error fetching options for question ${question.id}:`,
               optionsError
             );
           } else if (optionsData && optionsData.length > 0) {
@@ -365,6 +454,12 @@ const Certificate = () => {
             });
           }
         }
+      } else {
+        // No questions found, set empty array
+        setCurrentAssessment({
+          ...assessment,
+          questions: [],
+        });
       }
     } catch (error) {
       console.error("Error in fetchAssessmentQuestions:", error);
@@ -398,11 +493,43 @@ const Certificate = () => {
     setAssessmentsCollapsed((prev) => !prev);
     setActiveSection("assessment");
 
-    // If there's an assessment, automatically select the first one
+    // Check if there are assessments before trying to access
     if (assessments.length > 0 && !currentAssessment) {
       handleAssessmentSelect(assessments[0]);
     }
   };
+
+  // In the assessments rendering section, add more null checks
+  {
+    !assessmentsCollapsed && (
+      <div className="space-y-1 ml-4 border-l border-gray-800 pl-2 mt-1">
+        {assessments && assessments.length > 0 ? (
+          assessments.map((assessment) => {
+            const isCurrentAssessment =
+              currentAssessment && currentAssessment.id === assessment.id;
+
+            return (
+              <div
+                key={assessment.id}
+                className={`flex items-center gap-3 py-2 px-4 rounded cursor-pointer transition-colors ${
+                  isCurrentAssessment
+                    ? "bg-[#242424] text-[#6b5de4]"
+                    : "hover:bg-[#242424] text-gray-300"
+                }`}
+                onClick={() => handleAssessmentSelect(assessment)}
+              >
+                {/* ... rest of assessment rendering ... */}
+              </div>
+            );
+          })
+        ) : (
+          <div className="px-4 py-2 text-sm text-gray-400">
+            No assessments available
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // Handle answer selection in quiz
   const handleAnswerSelect = (questionId: number, optionId: number) => {
@@ -420,6 +547,7 @@ const Certificate = () => {
     );
   };
 
+  // Submit quiz answers
   // Submit quiz answers
   const handleQuizSubmit = async () => {
     try {
@@ -450,12 +578,12 @@ const Certificate = () => {
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (user) {
-        // For each question, save the selected answer
+      if (user && currentVideo) {
+        // Prepare answers for insertion
+        const answersToInsert = [];
         for (const questionId in selectedAnswers) {
           const optionId = selectedAnswers[questionId];
-
-          await supabase.from("user_answers").upsert({
+          answersToInsert.push({
             user_id: user.id,
             question_id: parseInt(questionId),
             selected_option_id: optionId,
@@ -463,15 +591,31 @@ const Certificate = () => {
           });
         }
 
-        // If passed, mark progress
-        if (correctCount >= totalQuestions / 2 && currentVideo) {
-          // Update user progress
-          setUserProgress((prev) => {
-            const newProgress = new Set(prev);
-            newProgress.add(currentVideo.id);
-            return newProgress;
-          });
+        if (answersToInsert.length > 0) {
+          const { error } = await supabase
+            .from("user_answers")
+            .insert(answersToInsert);
+
+          if (error) {
+            console.error("Error saving quiz answers:", error);
+          }
         }
+
+        // Mark quiz as taken by updating video_watched table
+        await supabase.from("video_watched").upsert(
+          {
+            user_id: user.id,
+            video_id: currentVideo.id,
+            quiz_taken: true,
+            progress_percentage: 100,
+            watched_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id,video_id" }
+        );
+
+        // Update userProgress state with the completed quiz
+        setUserProgress((prev) => new Set([...prev, currentVideo.id]));
+        console.log(userProgress);
       }
     } catch (error) {
       console.error("Error submitting quiz:", error);
@@ -536,9 +680,7 @@ const Certificate = () => {
 
   // Calculate completion percentages (placeholder logic)
   const quizzesCompletion =
-    videos.length > 0
-      ? (Array.from(userProgress).length / videos.length) * 100
-      : 0;
+    (Array.from(userProgress).length / videos.length) * 100;
 
   const assessmentCompletion = 0; // To be implemented based on actual data
   const certificateCompletion = 0; // To be implemented based on actual data
@@ -566,7 +708,7 @@ const Certificate = () => {
             {/* Quizzes content - visible when not collapsed */}
             {!quizzesCollapsed && (
               <div className="space-y-1 ml-4 border-l border-gray-800 pl-2 mt-1">
-                {videos.map((video) => {
+                {videos.map((video, index) => {
                   const isCurrentVideo =
                     currentVideo && currentVideo.id === video.id;
                   const isCompleted = userProgress.has(video.id);
@@ -575,18 +717,18 @@ const Certificate = () => {
                     <div
                       key={video.id}
                       className={`flex items-center gap-3 py-2 px-4 rounded hover:bg-[#242424] cursor-pointer transition-colors
-                        ${isCurrentVideo ? "bg-[#242424]" : ""}`}
+        ${isCurrentVideo ? "bg-[#242424]" : ""}`}
                       onClick={() => handleVideoSelect(video)}
                     >
                       <div
                         className={`w-6 h-6 rounded-full flex items-center justify-center 
-                        ${
-                          isCompleted
-                            ? "bg-green-500/20 text-green-400"
-                            : isCurrentVideo
-                            ? "bg-[#6b5de4]/20 text-[#6b5de4]"
-                            : "bg-[#333] text-[#ccc]"
-                        }`}
+        ${
+          isCompleted
+            ? "bg-green-500/20 text-green-400"
+            : isCurrentVideo
+            ? "bg-[#6b5de4]/20 text-[#6b5de4]"
+            : "bg-[#333] text-[#ccc]"
+        }`}
                       >
                         {isCompleted ? (
                           <Check className="w-3.5 h-3.5" />
@@ -594,15 +736,15 @@ const Certificate = () => {
                           <Play className="w-3.5 h-3.5" />
                         ) : (
                           <span className="text-xs">
-                            {(videos.indexOf(video) + 1)
-                              .toString()
-                              .padStart(2, "0")}
+                            {(index + 1).toString().padStart(2, "0")}
                           </span>
                         )}
                       </div>
                       <span
                         className={`text-sm ${
-                          isCurrentVideo
+                          isCompleted
+                            ? "text-green-400"
+                            : isCurrentVideo
                             ? "text-[#6b5de4] font-medium"
                             : "text-gray-300"
                         }`}
