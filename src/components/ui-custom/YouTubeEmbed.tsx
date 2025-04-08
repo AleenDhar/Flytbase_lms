@@ -12,19 +12,24 @@ interface YouTubeEmbedProps {
   autoplay?: boolean;
   onVideoEnd?: () => void;
   onVideoProgress?: (progress: number) => void;
+  onProgressUpdate?: (currentTime: number, duration: number) => void;
+  initialPosition?: number;
   className?: string;
 }
 
 const YouTubeEmbed: React.FC<YouTubeEmbedProps> = ({
   videoId,
-  autoplay = false,
+  autoplay = true,
   onVideoEnd,
   onVideoProgress,
+  onProgressUpdate,
+  initialPosition = 0,
   className = "",
 }) => {
   const [player, setPlayer] = useState<any>(null);
   const playerRef = useRef<HTMLDivElement>(null);
   const progressInterval = useRef<NodeJS.Timeout | null>(null);
+  const initialSeekDone = useRef<boolean>(false);
 
   const initializePlayer = () => {
     if (!playerRef.current) return;
@@ -36,6 +41,7 @@ const YouTubeEmbed: React.FC<YouTubeEmbedProps> = ({
         modestbranding: 1,
         rel: 0,
         origin: window.location.origin,
+        start: initialPosition > 0 ? Math.floor(initialPosition) : 0,
       },
       events: {
         onReady: handlePlayerReady,
@@ -47,20 +53,41 @@ const YouTubeEmbed: React.FC<YouTubeEmbedProps> = ({
   };
 
   const handlePlayerReady = (event: any) => {
+    if (initialPosition > 0 && !initialSeekDone.current) {
+      event.target.seekTo(initialPosition);
+      initialSeekDone.current = true;
+    }
+
     if (autoplay) {
       event.target.playVideo();
     }
 
-    if (onVideoProgress) {
-      progressInterval.current = setInterval(() => {
-        if (player && typeof player.getCurrentTime === "function") {
-          const currentTime = player.getCurrentTime();
-          const duration = player.getDuration();
-          const progressPercent = (currentTime / duration) * 100;
-          onVideoProgress(progressPercent);
-        }
-      }, 1000);
+    if (progressInterval.current) {
+      clearInterval(progressInterval.current);
     }
+
+    progressInterval.current = setInterval(() => {
+      if (event.target && typeof event.target.getCurrentTime === "function") {
+        const currentTime = event.target.getCurrentTime();
+        const duration = event.target.getDuration();
+        const playerState = event.target.getPlayerState();
+        const isPlaying = playerState === window.YT.PlayerState.PLAYING;
+
+        // Only update while playing
+        if (duration > 0 && isPlaying) {
+          // Update UI progress
+          if (onVideoProgress) {
+            const progressPercent = (currentTime / duration) * 100;
+            onVideoProgress(progressPercent);
+          }
+
+          // Update database progress
+          if (onProgressUpdate) {
+            onProgressUpdate(currentTime, duration);
+          }
+        }
+      }
+    }, 1000);
   };
 
   const handlePlayerStateChange = (event: any) => {
@@ -91,13 +118,27 @@ const YouTubeEmbed: React.FC<YouTubeEmbedProps> = ({
   }, []);
 
   useEffect(() => {
-    if (player && typeof player.cueVideoById === "function") {
-      player.cueVideoById(videoId);
+    // Reset the seek flag when video ID changes
+    initialSeekDone.current = false;
+
+    if (player && typeof player.loadVideoById === "function") {
+      if (initialPosition > 0) {
+        player.loadVideoById({
+          videoId: videoId,
+          startSeconds: initialPosition,
+        });
+        initialSeekDone.current = true;
+      } else {
+        player.loadVideoById(videoId);
+      }
+
       if (autoplay && typeof player.playVideo === "function") {
-        setTimeout(() => player.playVideo(), 500);
+        setTimeout(() => player.playVideo(), 100);
+      } else if (!autoplay && typeof player.pauseVideo === "function") {
+        setTimeout(() => player.pauseVideo(), 100);
       }
     }
-  }, [videoId, player, autoplay]);
+  }, [videoId, player, autoplay, initialPosition]);
 
   return (
     <div className={`w-full h-full ${className}`}>

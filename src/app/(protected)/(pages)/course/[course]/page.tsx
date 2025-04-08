@@ -38,6 +38,7 @@ import {
   Link as LinkIcon,
   X,
   Play,
+  ChevronLeft,
 } from "lucide-react";
 
 interface Video {
@@ -61,6 +62,11 @@ interface Option {
 }
 
 const CourseDetail = () => {
+  // Add these new state variables at the beginning of your component
+  const [user, setUser] = useState(null);
+  const [videoProgress, setVideoProgress] = useState(0);
+  const [lastPosition, setLastPosition] = useState(0);
+  const [previousAnswers, setPreviousAnswers] = useState({});
   const { course } = useParams();
   const [courseTitle, setCourseTitle] = useState<string>("");
   const [videos, setVideos] = useState<Video[]>([]);
@@ -82,7 +88,7 @@ const CourseDetail = () => {
     score: number;
     total: number;
   }>({ shown: false, score: 0, total: 0 });
-  const [tableOfContentsVisible, setTableOfContentsVisible] = useState(false);
+  const [tableOfContentsVisible, setTableOfContentsVisible] = useState(true);
   // New state for the lesson completed modal
   const [lessonCompletedModal, setLessonCompletedModal] = useState(false);
   // New state for the progress percentage
@@ -203,6 +209,60 @@ const CourseDetail = () => {
     // your other functions here
     shootCash();
   };
+  // Add this useEffect to fetch user and progress data
+  useEffect(() => {
+    const fetchUserAndProgress = async () => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setUser(user);
+
+      if (user && currentVideo) {
+        // Fetch video progress
+        const { data: videoData } = await supabase
+          .from("video_watched")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("video_id", currentVideo.id)
+          .single();
+
+        if (videoData) {
+          setVideoProgress(videoData.progress_percentage || 0);
+          setLastPosition(videoData.last_position_seconds || 0);
+
+          // If video was already completed, add to completedVideos set
+          if (videoData.completed) {
+            setCompletedVideos((prev) => {
+              const newSet = new Set(prev);
+              newSet.add(currentVideo.id);
+              return newSet;
+            });
+          }
+        }
+
+        // Also fetch all completed videos for this course
+        const { data: completedVideosData } = await supabase
+          .from("video_watched")
+          .select("video_id")
+          .eq("user_id", user.id)
+          .eq("completed", true)
+          .in(
+            "video_id",
+            videos.map((v) => v.id)
+          );
+
+        if (completedVideosData && completedVideosData.length > 0) {
+          const completedIds = new Set(
+            completedVideosData.map((v) => v.video_id)
+          );
+          setCompletedVideos(completedIds);
+        }
+      }
+    };
+
+    fetchUserAndProgress();
+  }, [currentVideo]); // Make this depend on currentVideo so it refetches when video changes
 
   useEffect(() => {
     const fetchCourse = async () => {
@@ -298,7 +358,6 @@ const CourseDetail = () => {
       document.removeEventListener("keydown", handleEscKey);
     };
   }, []);
-
   const fetchQuestionsForVideo = async (videoRowId: number) => {
     const supabase = createClient();
 
@@ -335,7 +394,110 @@ const CourseDetail = () => {
     }
 
     setOptions(optionsMap);
+
+    // If user is logged in, fetch previous answers
+    if (user) {
+      const previousAnswersMap = {};
+
+      for (const question of questionData) {
+        const { data: answerData } = await supabase
+          .from("user_answers")
+          .select("selected_option_id")
+          .eq("user_id", user.id)
+          .eq("question_id", question.id)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (answerData && answerData.length > 0) {
+          previousAnswersMap[question.id] = answerData[0].selected_option_id;
+        }
+      }
+
+      setPreviousAnswers(previousAnswersMap);
+
+      // Pre-fill answers if we have previous ones
+      if (Object.keys(previousAnswersMap).length > 0) {
+        setSelectedAnswers(previousAnswersMap);
+      }
+    }
   };
+  const updateVideoProgress = async (currentTime, duration) => {
+    if (!user || !currentVideo) return;
+
+    const progressPercentage = Math.floor((currentTime / duration) * 100);
+    const completed = progressPercentage > 90; // Consider video completed if watched >90%
+
+    // Only update database every 5 seconds or on significant progress changes
+    if (
+      Math.abs(progressPercentage - videoProgress) > 5 ||
+      Math.abs(currentTime - lastPosition) > 5
+    ) {
+      setVideoProgress(progressPercentage);
+      setLastPosition(currentTime);
+
+      const supabase = createClient();
+
+      await supabase.from("video_watched").upsert(
+        {
+          user_id: user.id,
+          video_id: currentVideo.id,
+          progress_percentage: progressPercentage,
+          last_position_seconds: Math.floor(currentTime),
+          completed: completed,
+          watched_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "user_id,video_id",
+        }
+      );
+
+      // If completed and not already in the set, update the completedVideos set
+      if (completed && !completedVideos.has(currentVideo.id)) {
+        setCompletedVideos((prev) => {
+          const newSet = new Set(prev);
+          newSet.add(currentVideo.id);
+          return newSet;
+        });
+      }
+    }
+  };
+  // const fetchQuestionsForVideo = async (videoRowId: number) => {
+  //   const supabase = createClient();
+
+  //   const { data: questionData, error: questionError } = await supabase
+  //     .from("questions")
+  //     .select("id, question_text, question_type")
+  //     .eq("video_id", videoRowId)
+  //     .eq("after_videoend", true);
+
+  //   if (questionError) {
+  //     console.error("Error fetching questions:", questionError);
+  //     return;
+  //   }
+
+  //   setQuestions(questionData);
+
+  //   const optionsMap: { [key: number]: Option[] } = {};
+
+  //   for (const question of questionData) {
+  //     const { data: optionsData, error: optionsError } = await supabase
+  //       .from("question_options")
+  //       .select("id, option_text, is_correct")
+  //       .eq("question_id", question.id);
+
+  //     if (optionsError) {
+  //       console.error(
+  //         `Error fetching options for question ${question.id}:`,
+  //         optionsError
+  //       );
+  //       continue;
+  //     }
+
+  //     optionsMap[question.id] = optionsData;
+  //   }
+
+  //   setOptions(optionsMap);
+  // };
 
   const handleAnswerSelect = (questionId: number, optionId: number) => {
     setSelectedAnswers((prev) => ({
@@ -351,7 +513,7 @@ const CourseDetail = () => {
     );
   };
 
-  const handleQuizSubmit = () => {
+  const handleQuizSubmit = async () => {
     let correctCount = 0;
     const totalQuestions = questions.length;
 
@@ -369,27 +531,86 @@ const CourseDetail = () => {
       score: correctCount,
       total: totalQuestions,
     });
+
+    // Save answers to database if user is logged in
+    if (user) {
+      const supabase = createClient();
+
+      // Prepare answers for insertion
+      const answersToInsert = [];
+
+      for (const [questionId, optionId] of Object.entries(selectedAnswers)) {
+        answersToInsert.push({
+          user_id: user.id,
+          question_id: parseInt(questionId),
+          selected_option_id: optionId,
+          created_at: new Date().toISOString(),
+        });
+      }
+
+      // Insert answers
+      if (answersToInsert.length > 0) {
+        const { error } = await supabase
+          .from("user_answers")
+          .insert(answersToInsert);
+
+        if (error) {
+          console.error("Error saving quiz answers:", error);
+        }
+      }
+
+      // Mark video as completed
+      await supabase.from("video_watched").upsert(
+        {
+          user_id: user.id,
+          video_id: currentVideo.id,
+          progress_percentage: 100,
+          completed: true,
+          watched_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "user_id,video_id",
+        }
+      );
+    }
   };
 
   const handleVideoSelect = (index: number) => {
     setCurrentVideoIndex(index);
-    setTableOfContentsVisible(false);
+    // setTableOfContentsVisible(false);
   };
 
   // Modified to mark video as completed and show the completion modal
-  const handleVideoEnd = () => {
+  const handleVideoEnd = async () => {
     shootRealisticConfetti();
-    if (currentVideo) {
-      // Mark this video as completed
+
+    if (currentVideo && user) {
+      // Mark video as completed in database
+      const supabase = createClient();
+
+      await supabase.from("video_watched").upsert(
+        {
+          user_id: user.id,
+          video_id: currentVideo.id,
+          progress_percentage: 100,
+          completed: true,
+          watched_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "user_id,video_id",
+        }
+      );
+
+      // Update local state
       setCompletedVideos((prev) => {
         const newSet = new Set(prev);
         newSet.add(currentVideo.id);
         return newSet;
       });
-
-      // Show the lesson completed modal
-      setLessonCompletedModal(true);
     }
+
+    // Show the lesson completed modal
+    setLessonCompletedModal(true);
   };
 
   const handleQuizComplete = () => {
@@ -471,6 +692,103 @@ const CourseDetail = () => {
       </div>
     );
   }
+  const NextVideoComponent = ({ nextVideo, onContinue }) => {
+    if (!nextVideo) return null;
+
+    return (
+      <div className="w-full bg-[#6b5de4] text-white p-6 rounded-lg my-4">
+        <div className="flex justify-between items-center">
+          <div className="flex flex-col">
+            <span className="text-sm font-medium mb-1">Next lesson</span>
+            <h3 className="text-2xl font-bold">{nextVideo.title}</h3>
+          </div>
+
+          <Button
+            onClick={onContinue}
+            className="bg-white hover:bg-white/90 text-[#6b5de4] px-6 py-5 rounded-lg h-auto"
+          >
+            <CheckCircle className="mr-2 h-5 w-5" />
+            Continue
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
+  // Add this component to your main component
+  // You can place this after the video description section and before the quiz section
+
+  // In your main component, add code to determine the next video:
+  const nextVideo =
+    currentVideoIndex < videos.length - 1
+      ? videos[currentVideoIndex + 1]
+      : null;
+
+  // Then render the component (place this where you want it to appear in the UI):
+  {
+    nextVideo && (
+      <NextVideoComponent
+        nextVideo={nextVideo}
+        onContinue={() => {
+          handleVideoSelect(currentVideoIndex + 1);
+        }}
+      />
+    );
+  }
+  const VideoNavigation = ({
+    videos,
+    currentVideoIndex,
+    handleVideoSelect,
+    // courseTitle,
+  }) => {
+    // Get video number for display (e.g., "02")
+    const videoNumber = String(currentVideoIndex + 1).padStart(2, "0");
+
+    return (
+      <div className="bg-[#6b5de4] text-white py-6 px-4 flex items-center justify-between w-full rounded-b-3xl mt-1">
+        {/* Previous arrow */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() =>
+            currentVideoIndex > 0 && handleVideoSelect(currentVideoIndex - 1)
+          }
+          disabled={currentVideoIndex === 0}
+          className="text-white hover:bg-white/20 h-10 w-10 rounded-full"
+        >
+          <ChevronLeft className="h-6 w-6" />
+        </Button>
+
+        {/* Center content with number, title and difficulty */}
+        <div className="flex flex-col items-center">
+          <div className="text-xl font-medium mb-1">{videoNumber}</div>
+          <h2 className="text-2xl md:text-3xl font-bold text-center mb-2">
+            {videos[currentVideoIndex]?.title || ""}
+          </h2>
+          <div className="flex items-center gap-2 pb-2">
+            {/* <span className="text-sm">Difficulty</span>
+            <Badge className="bg-white text-[#6b5de4] hover:bg-white/90 font-medium px-3">
+              Easy
+            </Badge> */}
+          </div>
+        </div>
+
+        {/* Next arrow */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() =>
+            currentVideoIndex < videos.length - 1 &&
+            handleVideoSelect(currentVideoIndex + 1)
+          }
+          disabled={currentVideoIndex === videos.length - 1}
+          className="text-white hover:bg-white/20 h-10 w-10 rounded-full"
+        >
+          <ChevronRight className="h-6 w-6" />
+        </Button>
+      </div>
+    );
+  };
 
   // Function to truncate description for preview
   const getTruncatedDescription = (text: string | null, maxLength = 100) => {
@@ -710,9 +1028,11 @@ const CourseDetail = () => {
                         className={`font-medium text-sm
                       ${
                         isCurrent
-                          ? "text-[#2C7BF2]"
+                          ? // ? "text-[#2C7BF2]"
+                            "text-white"
                           : isCompleted
-                          ? "text-green-400"
+                          ? // ? "text-green-400"
+                            "text-gray-300"
                           : "text-gray-300"
                       }
                     `}
@@ -763,14 +1083,23 @@ const CourseDetail = () => {
           >
             <div className="w-full relative rounded-lg overflow-hidden flex justify-center ">
               <div className="aspect-video w-full bg-black overflow-hidden">
+                {/* <YouTubeEmbed
+                  videoId={currentVideo.youtube_video_id}
+                  onVideoEnd={handleVideoEnd}
+                  // progressGradient="from-purple-600 via-indigo-500 to-pink-500"
+                  // progressGradient="from-blue-600 to-cyan-400"
+                  // autoplay={true}
+                /> */}
                 <YouTubeEmbed
                   videoId={currentVideo.youtube_video_id}
                   onVideoEnd={handleVideoEnd}
+                  onProgressUpdate={updateVideoProgress}
+                  initialPosition={lastPosition}
                 />
               </div>
             </div>
 
-            <div className="mt-6 flex flex-wrap justify-between items-center">
+            {/* <div className="mt-6 flex flex-wrap justify-between items-center">
               <div className="mb-2 md:mb-0 w-full md:w-auto">
                 <h2 className="text-xl md:text-2xl font-bold text-white">
                   {currentVideo.title}
@@ -803,8 +1132,12 @@ const CourseDetail = () => {
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
-            </div>
-
+            </div> */}
+            <VideoNavigation
+              videos={videos}
+              currentVideoIndex={currentVideoIndex}
+              handleVideoSelect={handleVideoSelect}
+            />
             {currentVideo.about && (
               <div className="mt-4 bg-gray-900/50 p-4 rounded-lg">
                 <div className="flex justify-between items-start">
@@ -957,12 +1290,17 @@ const CourseDetail = () => {
                                           option.id
                                         )
                                       }
-                                      className={`p-3 border rounded-lg flex items-center gap-2 cursor-pointer transition-all ${
-                                        selectedAnswers[question.id] ===
-                                        option.id
-                                          ? "border-[#0E61DD] bg-[#2C7BF2]/20"
-                                          : "border-gray-700 hover:border-[#0E61DD]/50 bg-gray-800/30"
-                                      }`}
+                                      className={`p-3 border rounded-lg flex items-center gap-2 cursor-pointer transition-all 
+        ${
+          selectedAnswers[question.id] === option.id
+            ? "border-[#0E61DD] bg-[#2C7BF2]/20"
+            : "border-gray-700 hover:border-[#0E61DD]/50 bg-gray-800/30"
+        } 
+        ${
+          previousAnswers[question.id] === option.id && !quizResults.shown
+            ? "ring-1 ring-[#0E61DD]/50"
+            : ""
+        }`}
                                       initial={{ opacity: 0, x: -10 }}
                                       animate={{ opacity: 1, x: 0 }}
                                       transition={{
@@ -994,6 +1332,15 @@ const CourseDetail = () => {
                                       <label className="flex-1 cursor-pointer text-gray-300">
                                         {option.option_text}
                                       </label>
+
+                                      {/* Badge for previously selected answer */}
+                                      {previousAnswers[question.id] ===
+                                        option.id &&
+                                        !quizResults.shown && (
+                                          <span className="px-2 py-1 text-xs bg-[#0E61DD]/20 text-[#2C7BF2] rounded-full">
+                                            Previously selected
+                                          </span>
+                                        )}
                                     </motion.div>
                                   ))}
                               </div>
@@ -1025,9 +1372,16 @@ const CourseDetail = () => {
               </AnimatePresence>
             </motion.div>
           )}
+          {nextVideo && (
+            <NextVideoComponent
+              nextVideo={nextVideo}
+              onContinue={() => {
+                handleVideoSelect(currentVideoIndex + 1);
+              }}
+            />
+          )}
         </div>
       </div>
-
       {/* Bottom footer with links */}
       <div className="fixed bottom-0 left-0 right-0 bg-[#161616] border-t border-gray-800 px-4 py-3 flex justify-between items-center z-10">
         <div className="flex items-center space-x-4">
