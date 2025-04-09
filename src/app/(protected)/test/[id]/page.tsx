@@ -107,7 +107,7 @@ const TestPage = () => {
   const [attemptId, setAttemptId] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
+  const [courseId, setCourseId] = useState<number | null>(null);
   // Test results state
   const [testResults, setTestResults] = useState<TestResults | null>(null);
   const [showTestResults, setShowTestResults] = useState(false);
@@ -614,7 +614,7 @@ const TestPage = () => {
             `Error fetching assessment: ${assessmentError.message}`
           );
         }
-
+        console.log("assessmentData:", assessmentData);
         if (!assessmentData) {
           toast.error("Assignment not found");
           router.push("/assignment");
@@ -682,7 +682,8 @@ const TestPage = () => {
             };
           })
         );
-
+        console.log("course", assessmentData.course_id);
+        setCourseId(assessmentData.course_id);
         // 3. Set the assignment state with all the data
         setAssignment({
           id: assessmentData.id,
@@ -934,12 +935,16 @@ const TestPage = () => {
 
       const finishTime = new Date().toISOString();
 
+      // Determine if the user passed (assuming 80% is passing threshold, as used in calculateTestResults)
+      const passed = results.score >= 80;
+
       const { error: updateAttemptError } = await supabase
         .from("assessment_attempts")
         .update({
           finished_at: finishTime,
           score: results.score,
           status: "completed",
+          passed: passed, // Add the passed field based on the test result
         })
         .eq("id", attemptId);
 
@@ -948,6 +953,7 @@ const TestPage = () => {
         throw new Error("Failed to update test attempt");
       }
 
+      // Rest of the code remains the same
       // 4. Create payload for API if needed
       const payload = {
         testId: id,
@@ -963,6 +969,7 @@ const TestPage = () => {
           (testState.remainingTime || 0),
         submittedAt: finishTime,
         score: results.score,
+        passed: passed, // Include passed status in the payload
       };
 
       // Send POST request to your API endpoint if needed
@@ -1225,7 +1232,7 @@ const TestPage = () => {
                     certificate.
                   </p>
                   <Button
-                    onClick={() => setShowCertificateModal(true)}
+                    onClick={() => router.push(`/certificate/${courseId}`)}
                     className="bg-green-600 hover:bg-green-700"
                   >
                     <Award className="mr-2 h-5 w-5" />

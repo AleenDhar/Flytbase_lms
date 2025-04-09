@@ -655,19 +655,26 @@ const CourseDetail = () => {
         }
       }
 
-      // Mark video as completed
-      await supabase.from("video_watched").upsert(
-        {
-          user_id: user.id,
-          video_id: currentVideo.id,
-          progress_percentage: 100,
-          completed: true,
-          watched_at: new Date().toISOString(),
-        },
-        {
-          onConflict: "user_id,video_id",
-        }
-      );
+      // Mark video as completed and quiz as taken
+      const { error: watchedError } = await supabase
+        .from("video_watched")
+        .upsert(
+          {
+            user_id: user.id,
+            video_id: currentVideo.id,
+            progress_percentage: 100,
+            completed: true,
+            quiz_taken: true, // Set quiz_taken to true
+            watched_at: new Date().toISOString(),
+          },
+          {
+            onConflict: "user_id,video_id", // This ensures upsert works on this composite key
+          }
+        );
+
+      if (watchedError) {
+        console.error("Error updating video watched status:", watchedError);
+      }
     }
   };
 
@@ -1262,7 +1269,7 @@ const CourseDetail = () => {
       {/* Main Content */}
       <div className="w-full p-4">
         {/* Main Content Area */}
-        <div className=" max-w-6xl mx-auto ">
+        <div className=" max-w-5xl mx-auto ">
           {/* Video Section */}
           <motion.div
             className="mb-6"

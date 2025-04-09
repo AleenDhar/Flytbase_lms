@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Play, Check, X, ChevronDown, ChevronUp } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
-
+// Import the modal component at the top of your file
+import CertificateModal from "@/components/CertificateModal";
 // Define interfaces based on the actual database schema
 interface Chapter {
   id: number;
@@ -15,7 +16,17 @@ interface Chapter {
   completionPercentage?: number;
   videos: Video[];
 }
-
+interface AssessmentAttemptSummary {
+  highest_score: number;
+  attempts: number;
+  passed: boolean;
+  latest_attempt?: {
+    id: number;
+    finished_at: string | null;
+    score: number | null;
+    status: string | null;
+  } | null;
+}
 interface Video {
   id: number;
   title: string;
@@ -117,7 +128,9 @@ const Certificate = () => {
   const { id: courseId } = useParams();
   const router = useRouter();
   const supabase = createClient();
-
+  const [showCertModal, setShowCertModal] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [existingCertificate, setExistingCertificate] = useState(null);
   // State variables
   // Add this to your state variables
   // Add these state variables to your component
@@ -153,16 +166,20 @@ const Certificate = () => {
   const [currentAssessment, setCurrentAssessment] = useState<Assessment | null>(
     null
   );
+  const [assessmentAttempts, setAssessmentAttempts] = useState<{
+    [key: number]: AssessmentAttemptSummary;
+  }>({});
 
-  // Fetch course data
-  // Fetch course data
   // Fetch course data
   useEffect(() => {
     // Replace your sequential queries with this optimized version
     const fetchCourseData = async () => {
       try {
         setLoading(true);
-
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData?.user) {
+          setCurrentUser(userData.user);
+        }
         // Fetch course details with a single query
         const { data: courseData, error: courseError } = await supabase
           .from("courses")
@@ -305,11 +322,158 @@ const Certificate = () => {
         console.error("Error fetching user progress:", error);
       }
     };
+    const fetchAssessmentAttempts = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) return;
+
+        // Fetch all assessment attempts for this user
+        const { data: attemptsData, error } = await supabase
+          .from("assessment_attempts")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("started_at", { ascending: false })
+          .eq("passed", true);
+
+        console.log("attemptsData", attemptsData);
+        if (error) {
+          console.error("Error fetching assessment attempts:", error);
+          return;
+        }
+
+        // Process attempts and create a summary for each assessment
+        // const processedAttempts = assessments.reduce((acc, assessment) => {
+        //   const assessmentAttemptsForThisAssessment = attemptsData.filter(
+        //     (attempt) => attempt.assessment_id === assessment.id
+        //   );
+
+        //   // Find the highest score attempt
+        //   const highestScoreAttempt =
+        //     assessmentAttemptsForThisAssessment.reduce(
+        //       (highest, current) =>
+        //         (current.score || 0) > (highest?.score || 0)
+        //           ? current
+        //           : highest,
+        //       null
+        //     );
+
+        //   // Determine pass status
+        //   // Use either the passed column from the database or compare against passing percentage
+        //   const passed = highestScoreAttempt
+        //     ? highestScoreAttempt.passed ??
+        //       highestScoreAttempt.score >= (assessment.passing_percentage || 80)
+        //     : false;
+
+        //   acc[assessment.id] = {
+        //     highest_score: highestScoreAttempt?.score || 0,
+        //     attempts: assessmentAttemptsForThisAssessment.length,
+        //     passed: passed,
+        //     latest_attempt: highestScoreAttempt
+        //       ? {
+        //           id: highestScoreAttempt.id,
+        //           finished_at: highestScoreAttempt.finished_at,
+        //           score: highestScoreAttempt.score,
+        //           status: highestScoreAttempt.status,
+        //         }
+        //       : null,
+        //   };
+
+        //   return acc;
+        // }, {});
+        // console.log("processedAttempts", processedAttempts);
+        // setAssessmentAttempts(processedAttempts);
+        setAssessmentAttempts(attemptsData);
+      } catch (error) {
+        console.error("Error in fetchAssessmentAttempts:", error);
+      }
+    };
 
     if (courseId) {
       fetchCourseData();
+      fetchAssessmentAttempts();
     }
   }, [courseId]);
+  // Add this function to check if all quizzes are completed
+  const isCertificateUnlocked = () => {
+    // // Check if all videos have been completed
+    // if (videos.length === 0) return false;
+
+    // // Compare the size of userProgress with the total number of videos
+    // return Array.from(userProgress).length === videos.length;
+    return assessmentAttempts[0]?.passed;
+  };
+
+  const checkExistingCertificate = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return null;
+
+      const { data, error } = await supabase
+        .from("certificate_user")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("course_id", courseId)
+        .single();
+
+      if (error && error.code !== "PGRST116") {
+        console.error("Error checking for existing certificate:", error);
+        return null;
+      }
+
+      return data; // Will be null if no certificate exists
+    } catch (error) {
+      console.error("Error in checkExistingCertificate:", error);
+      return null;
+    }
+  };
+
+  // Add this to your useEffect that loads course data
+  useEffect(() => {
+    // Your existing course data loading code...
+
+    // Add this to check for existing certificate
+    const checkCertificate = async () => {
+      const cert = await checkExistingCertificate();
+      setExistingCertificate(cert);
+    };
+
+    if (courseId) {
+      checkCertificate();
+    }
+  }, [courseId]);
+
+  // Function to open certificate URL
+  const openCertificate = () => {
+    if (existingCertificate?.url) {
+      window.open(existingCertificate.url, "_blank");
+    } else {
+      alert("Certificate URL not available. Please contact support.");
+    }
+  };
+  // Update your generateCertificate function to make the API call
+  const generateCertificate = () => {
+    // Check if the user has completed all required assessments
+    if (!isCertificateUnlocked()) {
+      alert("Please complete all assessments to unlock your certificate");
+      return;
+    }
+
+    // Just show the modal, let the modal handle the API call
+    setShowCertModal(true);
+  };
+
+  // Add this function to refresh certificate status after generation
+  const handleCertificateSuccess = async () => {
+    // Refresh the certificate status
+    const updatedCert = await checkExistingCertificate();
+    setExistingCertificate(updatedCert);
+  };
 
   // Optimized question fetching
   const fetchQuestionsForVideo = async (videoId, user = null) => {
@@ -680,7 +844,9 @@ const Certificate = () => {
 
   // Calculate completion percentages (placeholder logic)
   const quizzesCompletion =
-    (Array.from(userProgress).length / videos.length) * 100;
+    videos.length > 0
+      ? (Array.from(userProgress).length / videos.length) * 100
+      : 0;
 
   const assessmentCompletion = 0; // To be implemented based on actual data
   const certificateCompletion = 0; // To be implemented based on actual data
@@ -824,10 +990,10 @@ const Certificate = () => {
 
               {/* Watch buttons */}
               <div className="flex flex-wrap gap-4 mb-10">
-                <Button className="bg-[#6b5de4] hover:bg-[#5a4dd0] text-white flex items-center gap-2 py-6 px-5 rounded-md">
+                {/* <Button className="bg-[#6b5de4] hover:bg-[#5a4dd0] text-white flex items-center gap-2 py-6 px-5 rounded-md">
                   <Play className="w-5 h-5" />
                   <span>Watch this lesson</span>
-                </Button>
+                </Button> */}
 
                 {/* Find next video button */}
                 {(() => {
@@ -843,7 +1009,7 @@ const Certificate = () => {
                         onClick={() => handleVideoSelect(nextVideo)}
                       >
                         <Play className="w-5 h-5" />
-                        <span>Watch the next lesson</span>
+                        <span>Take the next quiz</span>
                       </Button>
                     );
                   }
@@ -975,62 +1141,281 @@ const Certificate = () => {
                 </div>
               )}
             </>
-          ) : activeSection === "quizzes" ? (
-            <div className="flex flex-col items-center justify-center h-96">
-              <h2 className="text-xl text-gray-400">
-                Select a lesson to begin
-              </h2>
-            </div>
           ) : activeSection === "assessment" ? (
             <div className="p-8">
               <h2 className="text-3xl font-bold mb-8">
                 {currentAssessment
                   ? currentAssessment.title
-                  : "Final Assessment"}
+                  : "Course Assessments"}
               </h2>
 
-              <div className="bg-[#1a1a1a] p-6 rounded-lg border border-gray-800">
-                <Button
-                  onClick={() => {
-                    if (assessments.length > 0) {
-                      const assessmentId = currentAssessment
-                        ? currentAssessment.id
-                        : assessments[0].id;
-                      router.push(`/assignment/${assessmentId}`);
-                    }
-                  }}
-                  disabled={assessments.length === 0}
-                  className="bg-[#6b5de4] hover:bg-[#5a4dd0] disabled:bg-gray-700 disabled:opacity-50 w-full"
-                >
-                  {assessments.length > 0
-                    ? "Go to Assessment"
-                    : "No Assessments Available"}
-                </Button>
+              <div className="space-y-6">
+                {assessments.map((assessment) => {
+                  // Get the attempt data for this specific assessment
+                  const attemptData = assessmentAttempts[0] || {
+                    highest_score: 0,
+                    attempts: 0,
+                    passed: false,
+                    latest_attempt: null,
+                  };
+
+                  return (
+                    <div
+                      key={assessment.id}
+                      className="bg-[#1a1a1a] p-6 rounded-lg border border-gray-800"
+                    >
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-xl font-semibold">
+                          {assessment.title}
+                        </h3>
+                        <div
+                          className={`px-3 py-1 rounded-full text-sm font-medium ${
+                            attemptData.passed
+                              ? "bg-green-500/20 text-green-400"
+                              : "bg-yellow-500/20 text-yellow-400"
+                          }`}
+                        >
+                          {attemptData.passed ? "Passed" : "Not Passed"}
+                        </div>
+                      </div>
+
+                      <div className="mb-4">
+                        <div className="flex justify-between text-sm text-gray-400 mb-2">
+                          <span>Highest Score</span>
+                          <span>
+                            {attemptData.highest_score}%
+                            {assessment.passing_percentage
+                              ? ` (Pass: ${assessment.passing_percentage}%)`
+                              : ""}
+                          </span>
+                        </div>
+                        <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full ${
+                              attemptData.passed
+                                ? "bg-green-500"
+                                : "bg-yellow-500"
+                            }`}
+                            style={{
+                              width: `${Math.min(
+                                attemptData.highest_score,
+                                100
+                              )}%`,
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+
+                      <div className="text-sm text-gray-400 mb-4">
+                        Attempts: {attemptData.attempts}
+                      </div>
+
+                      <Button
+                        onClick={() => {
+                          router.push(`/assignment/${assessment.id}`);
+                        }}
+                        className={`w-full ${
+                          attemptData.passed
+                            ? "bg-green-600 hover:bg-green-700"
+                            : "bg-[#6b5de4] hover:bg-[#5a4dd0]"
+                        }`}
+                      >
+                        {attemptData.passed
+                          ? "Review Assessment"
+                          : "Take Assessment"}
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-          ) : activeSection === "certificate" ? (
-            <div className="p-8">
-              <h2 className="text-3xl font-bold mb-8">Course Certificate</h2>
-              <div className="bg-[#1a1a1a] p-6 rounded-lg border border-gray-800">
-                <p className="text-gray-300 mb-4">
-                  Complete the final assessment to earn your certificate.
-                </p>
-                <div className="aspect-[4/3] max-w-2xl mx-auto bg-[#242424] rounded-lg flex items-center justify-center">
-                  <div className="text-center p-8">
-                    <h3 className="text-2xl font-bold mb-4">
-                      Certificate of Completion
-                    </h3>
-                    <p className="text-gray-400 mb-6">
-                      Complete all requirements to unlock your certificate
-                    </p>
-                    <div className="w-16 h-16 mx-auto border-2 border-[#6b5de4] border-t-transparent rounded-full animate-spin"></div>
-                  </div>
+          ) : (
+            activeSection === "certificate" && (
+              <div className="p-8">
+                <h2 className="text-3xl font-bold mb-8">Course Certificate</h2>
+                <div className="bg-[#1a1a1a] p-6 rounded-lg border border-gray-800">
+                  {isCertificateUnlocked() ? (
+                    <>
+                      <div className="flex items-center justify-between mb-4">
+                        <p className="text-green-400 flex items-center">
+                          <Check className="w-5 h-5 mr-2" />
+                          All requirements completed! You can now generate your
+                          certificate.
+                        </p>
+                      </div>
+                      {/* <div className="aspect-[4/3] max-w-2xl mx-auto bg-[#242424] rounded-lg p-8 mb-6">
+                        <div className="border-8 border-[#6b5de4]/20 h-full flex flex-col items-center justify-center p-8 text-center">
+                          <div className="text-xl text-[#6b5de4] mb-2">
+                            {courseTitle}
+                          </div>
+                          <h3 className="text-3xl font-bold mb-4">
+                            Certificate of Completion
+                          </h3>
+                          <div className="w-24 h-1 bg-[#6b5de4] mb-4"></div>
+                          <p className="text-gray-300 mb-6">
+                            This certifies that you have successfully completed
+                            all requirements
+                          </p>
+                          <div className="mt-auto text-gray-400">
+                            Issued on {new Date().toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div> */}
+                      {existingCertificate && (
+                        <div className="mt-4 p-3 bg-green-500/10 border border-green-500/30 rounded-md">
+                          <div className="flex items-center text-green-400 mb-2">
+                            <Check className="w-5 h-5 mr-2" />
+                            <p className="font-medium">
+                              Certificate already generated!
+                            </p>
+                          </div>
+                          <p className="text-sm text-gray-300 mb-2">
+                            Your certificate was created on{" "}
+                            {new Date(
+                              existingCertificate.created_at
+                            ).toLocaleDateString()}
+                            .
+                          </p>
+                          {existingCertificate.name && (
+                            <p className="text-sm text-gray-300">
+                              Recipient:{" "}
+                              <span className="text-white">
+                                {existingCertificate.name}
+                              </span>
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      {existingCertificate ? (
+                        <Button
+                          onClick={openCertificate}
+                          className="w-full bg-green-600 hover:bg-green-700 py-3"
+                        >
+                          View Your Certificate
+                        </Button>
+                      ) : isCertificateUnlocked() ? (
+                        <Button
+                          onClick={generateCertificate}
+                          className="w-full bg-[#6b5de4] hover:bg-[#5a4dd0] py-3"
+                        >
+                          Generate Certificate
+                        </Button>
+                      ) : (
+                        <Button
+                          disabled
+                          className="w-full bg-gray-700 opacity-50 cursor-not-allowed"
+                        >
+                          Complete All Requirements First
+                        </Button>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between mb-4">
+                        <p className="text-gray-300 flex items-center">
+                          <X className="w-5 h-5 mr-2 text-red-400" />
+                          Complete all lessons and quizzes to unlock your
+                          certificate
+                        </p>
+                      </div>
+                      <div className="aspect-[4/3] max-w-2xl mx-auto bg-[#242424] rounded-lg flex flex-col items-center justify-center p-8 relative overflow-hidden">
+                        {/* Locked overlay */}
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-10">
+                          <div className="bg-[#1a1a1a] rounded-full p-5 shadow-lg">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-12 w-12 text-[#6b5de4]"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <rect
+                                x="3"
+                                y="11"
+                                width="18"
+                                height="11"
+                                rx="2"
+                                ry="2"
+                              />
+                              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                            </svg>
+                          </div>
+                        </div>
+
+                        {/* Blurred certificate preview */}
+                        <div className="text-center filter blur-sm">
+                          <h3 className="text-2xl font-bold mb-4">
+                            Certificate of Completion
+                          </h3>
+                          <div className="w-24 h-1 bg-[#6b5de4] mx-auto mb-4"></div>
+                          <p className="text-gray-400 mb-6">
+                            Complete all requirements to unlock your certificate
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Progress indicator */}
+                      <div className="mt-6">
+                        <div className="flex justify-between text-sm mb-2">
+                          <span>Progress</span>
+                          <span>
+                            {Math.round(
+                              (Array.from(userProgress).length /
+                                videos.length) *
+                                100
+                            )}
+                            %
+                          </span>
+                        </div>
+                        <div className="h-2 bg-[#333] rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-[#6b5de4] rounded-full"
+                            style={{
+                              width: `${
+                                (Array.from(userProgress).length /
+                                  videos.length) *
+                                100
+                              }%`,
+                            }}
+                          ></div>
+                        </div>
+                        <div className="text-gray-400 text-sm mt-2">
+                          {Array.from(userProgress).length} of {videos.length}{" "}
+                          lessons completed
+                        </div>
+                      </div>
+
+                      {/* Disabled button */}
+                      <Button
+                        disabled
+                        className="w-full bg-gray-700 opacity-50 cursor-not-allowed mt-6"
+                      >
+                        Complete All Lessons to Unlock
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
-            </div>
-          ) : null}
+            )
+          )}
         </div>
       </div>
+      {showCertModal && (
+        <CertificateModal
+          isOpen={showCertModal}
+          onClose={() => setShowCertModal(false)}
+          defaultEmail={currentUser?.email || ""}
+          defaultName={
+            currentUser?.profile?.full_name ||
+            currentUser?.profile?.display_name ||
+            currentUser?.user_metadata?.full_name ||
+            ""
+          }
+          courseId={courseId}
+          courseTitle={courseTitle}
+          onSuccess={handleCertificateSuccess}
+        />
+      )}
     </div>
   );
 };
