@@ -347,13 +347,13 @@ const DashboardPage = () => {
       </section>
 
       {/* Main Dashboard Content */}
-      <Tabs defaultValue="enrolled" className="mb-8">
-        <TabsList className="grid w-full grid-cols-2 mb-6">
+      <Tabs defaultValue="enrolled" className="mb-8 ">
+        <TabsList className="grid w-full grid-cols-2 mb-6 h-full">
           <TabsTrigger value="enrolled" className="text-base py-3">
             <GradCap className="mr-2 h-4 w-4" /> Enrolled Courses
           </TabsTrigger>
-          <TabsTrigger value="wishlist" className="text-base py-3">
-            <Heart className="mr-2 h-4 w-4" /> Wishlist
+          <TabsTrigger value="certificates" className="text-base py-3">
+            <Heart className="mr-2 h-4 w-4" /> Certificates
           </TabsTrigger>
         </TabsList>
 

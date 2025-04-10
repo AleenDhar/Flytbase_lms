@@ -190,7 +190,7 @@ const Layout = ({ children }: LayoutProps) => {
     //     : "flybase_academy_logo.svg";
     // }
 
-    return "flybase_academy_logo.svg";
+    return "https://cdn.prod.website-files.com/65cf50589440654730dd6e6f/65d82ef1cf52cae0205985ca_FB%20Academy.svg";
   };
 
   // Sample data
