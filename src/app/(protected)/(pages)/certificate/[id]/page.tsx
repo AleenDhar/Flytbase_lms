@@ -143,7 +143,7 @@ const Certificate = () => {
   const [loading, setLoading] = useState(true);
   const [courseTitle, setCourseTitle] = useState("Loading...");
   const [courseDescription, setCourseDescription] = useState("");
-  const [activeSection, setActiveSection] = useState("quizzes"); // quizzes, assessment, certificate
+  const [activeSection, setActiveSection] = useState("certificate"); // quizzes, assessment, certificate
   const [videos, setVideos] = useState<Video[]>([]);
   const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -160,7 +160,7 @@ const Certificate = () => {
     total: 0,
   });
   const [userProgress, setUserProgress] = useState<Set<number>>(new Set());
-  const [quizzesCollapsed, setQuizzesCollapsed] = useState(false);
+  const [quizzesCollapsed, setQuizzesCollapsed] = useState(true);
   const [assessmentsCollapsed, setAssessmentsCollapsed] = useState(true);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [currentAssessment, setCurrentAssessment] = useState<Assessment | null>(

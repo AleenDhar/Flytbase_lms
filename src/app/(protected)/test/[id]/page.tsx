@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import CertificateModal from "@/components/CertificateModal";
 
 // Interface for question options
 interface QuestionOption {
@@ -89,6 +90,7 @@ interface CertificateFormData {
 }
 
 const TestPage = () => {
+  const [showCertModal, setShowCertModal] = useState(false);
   const { id } = useParams<{ id: string }>();
   const attemptCreatedRef = useRef(false);
   const router = useRouter();
@@ -112,7 +114,8 @@ const TestPage = () => {
   const [testResults, setTestResults] = useState<TestResults | null>(null);
   const [showTestResults, setShowTestResults] = useState(false);
   const [activeTab, setActiveTab] = useState<"summary" | "review">("summary");
-
+  const [currentUser, setCurrentUser] = useState(null);
+  const [courseTitle, setCourseTitle] = useState("Loading...");
   // Certificate state
   const [certificateModalOpen, setShowCertificateModal] = useState(false);
   const [certificateFormData, setCertificateFormData] =
@@ -123,10 +126,88 @@ const TestPage = () => {
     });
   const [certificateGenerated, setShowCertificate] = useState(false);
   const [certificateId, setCertificateId] = useState<string>("");
-
+  const [existingCertificate, setExistingCertificate] = useState(null);
   // Get the current question
   const currentQuestion = assignment?.questions[currentQuestionIndex];
+  const checkExistingCertificate = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
+      if (!user) return null;
+
+      const { data, error } = await supabase
+        .from("certificate_user")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("course_id", courseId)
+        .single();
+
+      if (error && error.code !== "PGRST116") {
+        console.error("Error checking for existing certificate:", error);
+        return null;
+      }
+
+      return data; // Will be null if no certificate exists
+    } catch (error) {
+      console.error("Error in checkExistingCertificate:", error);
+      return null;
+    }
+  };
+
+  // Add this to your useEffect that loads course data
+  useEffect(() => {
+    // Define an inner async function
+    const fetchData = async () => {
+      // Your existing course data loading code...
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData?.user) {
+        setCurrentUser(userData.user);
+      }
+      // Fetch course details with a single query
+      const { data: courseData, error: courseError } = await supabase
+        .from("courses")
+        .select("id, title, description")
+        .eq("id", courseId)
+        .single();
+
+      if (courseError) {
+        console.error("Error fetching course:", courseError);
+        return;
+      }
+
+      if (courseData) {
+        setCourseTitle(courseData.title);
+      }
+
+      // Add this to check for existing certificate
+      const cert = await checkExistingCertificate();
+      setExistingCertificate(cert);
+    };
+
+    // Call the async function
+    if (courseId) {
+      fetchData();
+    }
+  }, [courseId]);
+
+  // Function to open certificate URL
+  const openCertificate = () => {
+    if (existingCertificate?.url) {
+      window.open(existingCertificate.url, "_blank");
+    } else {
+      alert("Certificate URL not available. Please contact support.");
+    }
+  };
+  const generateCertificate = () => {
+    setShowCertModal(true);
+  };
+  const handleCertificateSuccess = async () => {
+    // Refresh the certificate status
+    const updatedCert = await checkExistingCertificate();
+    setExistingCertificate(updatedCert);
+  };
   // Create attempt record when test starts
   const createAttemptRecord = async () => {
     if (!user?.id || !assignment) return;
@@ -1233,6 +1314,7 @@ const TestPage = () => {
                   </p>
                   <Button
                     onClick={() => router.push(`/certificate/${courseId}`)}
+                    // onClick={generateCertificate}
                     className="bg-green-600 hover:bg-green-700"
                   >
                     <Award className="mr-2 h-5 w-5" />
@@ -1749,6 +1831,22 @@ const TestPage = () => {
         answeredQuestions={answeredQuestions}
         totalQuestions={assignment.questions.length}
       />
+      {showCertModal && (
+        <CertificateModal
+          isOpen={showCertModal}
+          onClose={() => setShowCertModal(false)}
+          defaultEmail={user?.email || ""}
+          defaultName={
+            user?.profile?.full_name ||
+            user?.profile?.display_name ||
+            user?.user_metadata?.full_name ||
+            ""
+          }
+          courseId={courseId}
+          courseTitle={courseTitle}
+          onSuccess={handleCertificateSuccess}
+        />
+      )}
     </div>
   );
 };

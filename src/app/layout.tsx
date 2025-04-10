@@ -4,6 +4,8 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { TestProvider } from "@/contexts/TestContext";
 import { Toaster } from "@/components/ui/sonner";
+import { atlassianSans } from "./fonts"; // Import custom font
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -27,7 +29,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        // Include the new custom font variable together with your existing fonts
+        className={`${geistSans.variable} ${geistMono.variable} ${atlassianSans.variable} antialiased`}
       >
         <TestProvider>
           <ThemeProvider

@@ -1267,7 +1267,7 @@ const CourseDetail = () => {
       </motion.div>
 
       {/* Main Content */}
-      <div className="w-full  flex flex-col justify-center items-center">
+      <div className="w-full p-4">
         {/* Main Content Area */}
         <div className=" w-full mx-auto  ">
           {/* Video Section */}
@@ -1278,7 +1278,7 @@ const CourseDetail = () => {
             transition={{ duration: 0.5 }}
           >
             <div className="w-full relative rounded-lg overflow-hidden flex justify-center ">
-              <div className="aspect-video w-full bg-black overflow-hidden max-h-[80vh] flex">
+              <div className="aspect-video w-full bg-black overflow-hidden max-h-[80vh]">
                 {/* <YouTubeEmbed
                   videoId={currentVideo.youtube_video_id}
                   onVideoEnd={handleVideoEnd}
@@ -1329,171 +1329,165 @@ const CourseDetail = () => {
                 </Button>
               </div>
             </div> */}
-            <div className="  mx-10">
-              {/* <div className="w-5xl"> */}
-              <VideoNavigation
-                videos={videos}
-                currentVideoIndex={currentVideoIndex}
-                handleVideoSelect={handleVideoSelect}
-              />
-              {currentVideo.about && (
-                <div className="mt-4 bg-gray-900/50 p-4 rounded-lg">
-                  <div className="flex justify-between items-start">
-                    <div className="prose prose-invert max-w-none">
-                      <p className="text-gray-300">
-                        {getTruncatedDescription(currentVideo.about)}
-                      </p>
-                    </div>
-                  </div>
-                  {currentVideo.about && currentVideo.about.length > 100 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="mt-2 text-[#0E61DD] hover:text-[#2C7BF2] hover:bg-gray-800/50"
-                      onClick={() =>
-                        setDescriptionExpanded(!descriptionExpanded)
-                      }
-                    >
-                      {descriptionExpanded ? (
-                        <>
-                          Show Less <ChevronUp className="ml-1 h-4 w-4" />
-                        </>
-                      ) : (
-                        <>
-                          Read More <ChevronDown className="ml-1 h-4 w-4" />
-                        </>
-                      )}
-                    </Button>
-                  )}
-                </div>
-              )}
-              {/* </div> */}
-            </div>
-          </motion.div>
-          <div className="  mx-10">
-            {/* Quiz Section */}
-            {questions.length > 0 && (
-              <motion.div
-                className="mt-8 rounded-lg border border-gray-800 bg-gray-900/30 overflow-hidden"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.2 }}
-              >
-                <div
-                  className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-800/30"
-                  onClick={() => setQuizExpanded(!quizExpanded)}
-                >
-                  <div>
-                    <h3 className="text-lg font-bold text-white flex items-center">
-                      <span>Video Quiz</span>
-                      <Badge className="ml-2 bg-#2C7BF2 text-white border-none">
-                        {questions.length} questions
-                      </Badge>
-                    </h3>
-                    <p className="text-sm text-gray-400 mt-1">
-                      Test your understanding of the video content
+
+            <VideoNavigation
+              videos={videos}
+              currentVideoIndex={currentVideoIndex}
+              handleVideoSelect={handleVideoSelect}
+            />
+            {currentVideo.about && (
+              <div className="mt-4 bg-gray-900/50 p-4 rounded-lg">
+                <div className="flex justify-between items-start">
+                  <div className="prose prose-invert max-w-none">
+                    <p className="text-gray-300">
+                      {getTruncatedDescription(currentVideo.about)}
                     </p>
                   </div>
+                </div>
+                {currentVideo.about && currentVideo.about.length > 100 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2 text-[#0E61DD] hover:text-[#2C7BF2] hover:bg-gray-800/50"
+                    onClick={() => setDescriptionExpanded(!descriptionExpanded)}
+                  >
+                    {descriptionExpanded ? (
+                      <>
+                        Show Less <ChevronUp className="ml-1 h-4 w-4" />
+                      </>
+                    ) : (
+                      <>
+                        Read More <ChevronDown className="ml-1 h-4 w-4" />
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            )}
+          </motion.div>
+
+          {/* Quiz Section */}
+          {questions.length > 0 && (
+            <motion.div
+              className="mt-8 rounded-lg border border-gray-800 bg-gray-900/30 overflow-hidden"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+            >
+              <div
+                className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-800/30"
+                onClick={() => setQuizExpanded(!quizExpanded)}
+              >
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center">
+                    <span>Video Quiz</span>
+                    <Badge className="ml-2 bg-#2C7BF2 text-white border-none">
+                      {questions.length} questions
+                    </Badge>
+                  </h3>
+                  <p className="text-sm text-gray-400 mt-1">
+                    Test your understanding of the video content
+                  </p>
+                </div>
+                <motion.div
+                  animate={{ rotate: quizExpanded ? 180 : 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-gray-400 hover:text-white hover:bg-gray-800"
+                  >
+                    <ChevronDown className="h-5 w-5" />
+                  </Button>
+                </motion.div>
+              </div>
+
+              <AnimatePresence>
+                {quizExpanded && (
                   <motion.div
-                    animate={{ rotate: quizExpanded ? 180 : 0 }}
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.3 }}
                   >
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-gray-400 hover:text-white hover:bg-gray-800"
-                    >
-                      <ChevronDown className="h-5 w-5" />
-                    </Button>
-                  </motion.div>
-                </div>
-
-                <AnimatePresence>
-                  {quizExpanded && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      {quizResults.shown ? (
-                        <div className="p-6 border-t border-gray-800">
-                          <div className="flex flex-col items-center text-center">
-                            <motion.div
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                              transition={{ type: "spring", damping: 15 }}
-                              className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 ${
-                                quizResults.score === quizResults.total
-                                  ? "bg-green-900/30 text-green-400"
-                                  : quizResults.score >= quizResults.total / 2
-                                  ? "bg-amber-900/30 text-amber-400"
-                                  : "bg-red-900/30 text-red-400"
-                              }`}
-                            >
-                              <span className="text-3xl font-bold">
-                                {quizResults.score}/{quizResults.total}
-                              </span>
-                            </motion.div>
-                            <h3 className="text-xl font-bold mb-2 text-white">
-                              Quiz Results
-                            </h3>
-                            <p className="text-gray-400 mb-6 max-w-md mx-auto">
-                              {quizResults.score === quizResults.total
-                                ? "Perfect score! You've mastered this section."
+                    {quizResults.shown ? (
+                      <div className="p-6 border-t border-gray-800">
+                        <div className="flex flex-col items-center text-center">
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ type: "spring", damping: 15 }}
+                            className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 ${
+                              quizResults.score === quizResults.total
+                                ? "bg-green-900/30 text-green-400"
                                 : quizResults.score >= quizResults.total / 2
-                                ? "Good job! You're making progress."
-                                : "Keep learning. Review the video and try again."}
-                            </p>
-                            <div className="flex flex-wrap justify-center gap-3">
-                              <Button
-                                variant="outline"
-                                onClick={handleResetQuiz}
-                                className="border-gray-700 bg-gray-800 hover:bg-gray-700 text-white"
-                              >
-                                Try Again
-                              </Button>
-                              <Button
-                                onClick={handleQuizComplete}
-                                className="bg-[#0E61DD] hover:bg-[#2C7BF2]"
-                              >
-                                {currentVideoIndex < videos.length - 1
-                                  ? "Next Video"
-                                  : "Complete Course"}
-                              </Button>
-                            </div>
+                                ? "bg-amber-900/30 text-amber-400"
+                                : "bg-red-900/30 text-red-400"
+                            }`}
+                          >
+                            <span className="text-3xl font-bold">
+                              {quizResults.score}/{quizResults.total}
+                            </span>
+                          </motion.div>
+                          <h3 className="text-xl font-bold mb-2 text-white">
+                            Quiz Results
+                          </h3>
+                          <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                            {quizResults.score === quizResults.total
+                              ? "Perfect score! You've mastered this section."
+                              : quizResults.score >= quizResults.total / 2
+                              ? "Good job! You're making progress."
+                              : "Keep learning. Review the video and try again."}
+                          </p>
+                          <div className="flex flex-wrap justify-center gap-3">
+                            <Button
+                              variant="outline"
+                              onClick={handleResetQuiz}
+                              className="border-gray-700 bg-gray-800 hover:bg-gray-700 text-white"
+                            >
+                              Try Again
+                            </Button>
+                            <Button
+                              onClick={handleQuizComplete}
+                              className="bg-[#0E61DD] hover:bg-[#2C7BF2]"
+                            >
+                              {currentVideoIndex < videos.length - 1
+                                ? "Next Video"
+                                : "Complete Course"}
+                            </Button>
                           </div>
                         </div>
-                      ) : (
-                        <>
-                          <div className="p-4 sm:p-6 border-t border-gray-800 space-y-6">
-                            {questions.map((question, qIndex) => (
-                              <motion.div
-                                key={question.id}
-                                className="space-y-3"
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.1 * qIndex }}
-                              >
-                                <h3 className="font-medium flex gap-2 text-white">
-                                  <span className="bg-[#0E61DD]/50 text-[#2C7BF2] rounded-full w-6 h-6 flex items-center justify-center text-sm flex-shrink-0">
-                                    {qIndex + 1}
-                                  </span>
-                                  <span>{question.question_text}</span>
-                                </h3>
-                                <div className="ml-8 space-y-2">
-                                  {options[question.id] &&
-                                    options[question.id].map(
-                                      (option, oIndex) => (
-                                        <motion.div
-                                          key={option.id}
-                                          onClick={() =>
-                                            handleAnswerSelect(
-                                              question.id,
-                                              option.id
-                                            )
-                                          }
-                                          className={`p-3 border rounded-lg flex items-center gap-2 cursor-pointer transition-all 
+                      </div>
+                    ) : (
+                      <>
+                        <div className="p-4 sm:p-6 border-t border-gray-800 space-y-6">
+                          {questions.map((question, qIndex) => (
+                            <motion.div
+                              key={question.id}
+                              className="space-y-3"
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: 0.1 * qIndex }}
+                            >
+                              <h3 className="font-medium flex gap-2 text-white">
+                                <span className="bg-[#0E61DD]/50 text-[#2C7BF2] rounded-full w-6 h-6 flex items-center justify-center text-sm flex-shrink-0">
+                                  {qIndex + 1}
+                                </span>
+                                <span>{question.question_text}</span>
+                              </h3>
+                              <div className="ml-8 space-y-2">
+                                {options[question.id] &&
+                                  options[question.id].map((option, oIndex) => (
+                                    <motion.div
+                                      key={option.id}
+                                      onClick={() =>
+                                        handleAnswerSelect(
+                                          question.id,
+                                          option.id
+                                        )
+                                      }
+                                      className={`p-3 border rounded-lg flex items-center gap-2 cursor-pointer transition-all 
         ${
           selectedAnswers[question.id] === option.id
             ? "border-[#0E61DD] bg-[#2C7BF2]/20"
@@ -1504,87 +1498,85 @@ const CourseDetail = () => {
             ? "ring-1 ring-[#0E61DD]/50"
             : ""
         }`}
-                                          initial={{ opacity: 0, x: -10 }}
-                                          animate={{ opacity: 1, x: 0 }}
-                                          transition={{
-                                            delay: 0.1 * qIndex + 0.05 * oIndex,
-                                          }}
-                                          whileHover={{ x: 5 }}
-                                        >
-                                          <div
-                                            className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                                              selectedAnswers[question.id] ===
-                                              option.id
-                                                ? "border-[#0E61DD]"
-                                                : "border-gray-600"
-                                            }`}
-                                          >
-                                            {selectedAnswers[question.id] ===
-                                              option.id && (
-                                              <motion.div
-                                                className="w-3 h-3 rounded-full bg-[#0E61DD]"
-                                                initial={{ scale: 0 }}
-                                                animate={{ scale: 1 }}
-                                                transition={{
-                                                  type: "spring",
-                                                  damping: 10,
-                                                }}
-                                              />
-                                            )}
-                                          </div>
-                                          <label className="flex-1 cursor-pointer text-gray-300">
-                                            {option.option_text}
-                                          </label>
+                                      initial={{ opacity: 0, x: -10 }}
+                                      animate={{ opacity: 1, x: 0 }}
+                                      transition={{
+                                        delay: 0.1 * qIndex + 0.05 * oIndex,
+                                      }}
+                                      whileHover={{ x: 5 }}
+                                    >
+                                      <div
+                                        className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                                          selectedAnswers[question.id] ===
+                                          option.id
+                                            ? "border-[#0E61DD]"
+                                            : "border-gray-600"
+                                        }`}
+                                      >
+                                        {selectedAnswers[question.id] ===
+                                          option.id && (
+                                          <motion.div
+                                            className="w-3 h-3 rounded-full bg-[#0E61DD]"
+                                            initial={{ scale: 0 }}
+                                            animate={{ scale: 1 }}
+                                            transition={{
+                                              type: "spring",
+                                              damping: 10,
+                                            }}
+                                          />
+                                        )}
+                                      </div>
+                                      <label className="flex-1 cursor-pointer text-gray-300">
+                                        {option.option_text}
+                                      </label>
 
-                                          {/* Badge for previously selected answer */}
-                                          {previousAnswers[question.id] ===
-                                            option.id &&
-                                            !quizResults.shown && (
-                                              <span className="px-2 py-1 text-xs bg-[#0E61DD]/20 text-[#2C7BF2] rounded-full">
-                                                Previously selected
-                                              </span>
-                                            )}
-                                        </motion.div>
-                                      )
-                                    )}
-                                </div>
-                                {qIndex < questions.length - 1 && (
-                                  <Separator className="bg-gray-800" />
-                                )}
-                              </motion.div>
-                            ))}
-                          </div>
-                          <div className="p-4 border-t border-gray-800 flex justify-end">
-                            <motion.div
-                              initial={{ opacity: 0, y: 20 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: 0.3 }}
-                            >
-                              <Button
-                                onClick={handleQuizSubmit}
-                                disabled={!isQuizComplete()}
-                                className="bg-[#2C7BF2] hover:bg-#0E61DD disabled:bg-gray-800 disabled:text-gray-500"
-                              >
-                                Submit Answers
-                              </Button>
+                                      {/* Badge for previously selected answer */}
+                                      {previousAnswers[question.id] ===
+                                        option.id &&
+                                        !quizResults.shown && (
+                                          <span className="px-2 py-1 text-xs bg-[#0E61DD]/20 text-[#2C7BF2] rounded-full">
+                                            Previously selected
+                                          </span>
+                                        )}
+                                    </motion.div>
+                                  ))}
+                              </div>
+                              {qIndex < questions.length - 1 && (
+                                <Separator className="bg-gray-800" />
+                              )}
                             </motion.div>
-                          </div>
-                        </>
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            )}
-            {nextVideo && (
-              <NextVideoComponent
-                nextVideo={nextVideo}
-                onContinue={() => {
-                  handleVideoSelect(currentVideoIndex + 1);
-                }}
-              />
-            )}
-          </div>
+                          ))}
+                        </div>
+                        <div className="p-4 border-t border-gray-800 flex justify-end">
+                          <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.3 }}
+                          >
+                            <Button
+                              onClick={handleQuizSubmit}
+                              disabled={!isQuizComplete()}
+                              className="bg-[#2C7BF2] hover:bg-#0E61DD disabled:bg-gray-800 disabled:text-gray-500"
+                            >
+                              Submit Answers
+                            </Button>
+                          </motion.div>
+                        </div>
+                      </>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          )}
+          {nextVideo && (
+            <NextVideoComponent
+              nextVideo={nextVideo}
+              onContinue={() => {
+                handleVideoSelect(currentVideoIndex + 1);
+              }}
+            />
+          )}
         </div>
       </div>
       {/* Bottom footer with links */}

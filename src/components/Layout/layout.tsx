@@ -182,15 +182,15 @@ const Layout = ({ children }: LayoutProps) => {
 
   // Get logo based on theme and screen size
   const getLogo = () => {
-    if (!mounted) return "/lovable-uploads/logo.png"; // Default before hydration
+    // if (!mounted) return "flybase_academy_logo.svg"; // Default before hydration
 
-    if (isMobile) {
-      return theme === "dark"
-        ? "/lovable-uploads/logo.png"
-        : "/lovable-uploads/logo.png";
-    }
+    // if (isMobile) {
+    //   return theme === "dark"
+    //     ? "flybase_academy_logo.svg"
+    //     : "flybase_academy_logo.svg";
+    // }
 
-    return "/lovable-uploads/logo.png";
+    return "flybase_academy_logo.svg";
   };
 
   // Sample data
@@ -377,7 +377,7 @@ const Layout = ({ children }: LayoutProps) => {
             : "bg-card shadow-sm"
         }`}
       >
-        <div className="mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
+        <div className="mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <Link className="flex items-center" href="/">
@@ -400,8 +400,14 @@ const Layout = ({ children }: LayoutProps) => {
                   href="/assignment"
                   className="px-3 py-2 rounded-md text-sm font-medium text-foreground hover:text-primary hover:bg-accent/30 transition-colors duration-300"
                 >
-                  Assignments
+                  Assessment
                 </Link>
+                {/* <Link
+                  href="/certificate"
+                  className="px-3 py-2 rounded-md text-sm font-medium text-foreground hover:text-primary hover:bg-accent/30 transition-colors duration-300"
+                >
+                  Certificate
+                </Link> */}
                 <Link
                   href="/course"
                   className="px-3 py-2 rounded-md text-sm font-medium text-foreground hover:text-primary hover:bg-accent/30 transition-colors duration-300"
@@ -419,10 +425,6 @@ const Layout = ({ children }: LayoutProps) => {
 
                 {/* Dropdown menu example */}
                 <div className="relative group">
-                  <button className="flex items-center px-3 py-2 rounded-md text-sm font-medium text-foreground hover:text-primary hover:bg-accent/30 transition-colors duration-300">
-                    Resources
-                    <ChevronDown className="ml-1 h-4 w-4" />
-                  </button>
                   <div className="absolute left-0 mt-2 w-48 bg-card rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 border border-border">
                     <div className="py-1 rounded-md">
                       <Link
@@ -456,7 +458,7 @@ const Layout = ({ children }: LayoutProps) => {
             </div>
 
             <div className="hidden md:flex items-center space-x-4">
-              <ModeToggle />
+              {/* <ModeToggle /> */}
               <div className="h-6 w-px bg-border/70"></div>
               <UserGreetText />
               {/* <button

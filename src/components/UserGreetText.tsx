@@ -50,10 +50,15 @@ const UserGreetText = () => {
             </Avatar>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
+            <DropdownMenuLabel
+              onClick={() => router.push("/dashboard")}
+              className="cursor-pointer"
+            >
+              Dashboard
+            </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Courses</DropdownMenuItem>
-            <DropdownMenuItem> Assignments</DropdownMenuItem>
+            {/* <DropdownMenuItem onClick={() => router.push("/course")}>Courses</DropdownMenuItem>
+            <DropdownMenuItem> </DropdownMenuItem> */}
             <DropdownMenuItem>
               <LoginButton />
             </DropdownMenuItem>

@@ -66,7 +66,7 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-12 max-w-screen-xl">
         {/* Hero Section */}
-        <section className="mb-16 text-center">
+        {/* <section className="mb-16 text-center">
           <div className="inline-flex items-center px-3 py-1 mb-6 text-sm font-medium bg-primary/10 text-primary rounded-full">
             <Sparkles className="h-4 w-4 mr-2" />
             <span>Testing Platform</span>
@@ -82,7 +82,7 @@ const Index = () => {
           </p>
 
           <div className="h-1 w-20 bg-primary mx-auto rounded-full" />
-        </section>
+        </section> */}
 
         {/* Assignments Grid */}
         <section>

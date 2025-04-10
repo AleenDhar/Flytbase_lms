@@ -163,7 +163,7 @@ const VideoLandingPage = () => {
             <div className="relative rounded-2xl overflow-hidden shadow-xl border border-gray-100/10">
               {/* Overlay with headline text */}
               <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-black/40 px-4">
-                <div className="text-center max-w-5xl">
+                <div className="text-center max-w-5xl pt-32">
                   <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
                     You know what you want to accomplish.{" "}
                     <span className="text-yellow-400">Now learn how.</span>

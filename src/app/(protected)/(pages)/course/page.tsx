@@ -275,7 +275,7 @@ const UserPage = () => {
   return (
     <div className="bg-background min-h-screen">
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-primary/20 to-purple-500/20 py-16">
+      {/* <section className="bg-gradient-to-r from-primary/20 to-purple-500/20 py-16">
         <div className="container max-w-6xl mx-auto px-4">
           <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
             Expand Your Knowledge
@@ -288,7 +288,7 @@ const UserPage = () => {
             <Link href="/dashboard">My Dashboard</Link>
           </Button>
         </div>
-      </section>
+      </section> */}
 
       {/* Courses Section */}
       <section className="container max-w-6xl mx-auto px-4 py-16">
