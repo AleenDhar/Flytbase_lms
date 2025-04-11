@@ -317,14 +317,14 @@ const UserPage = () => {
               {/* Ribbon for enrollments or popular courses */}
               {enrolledCourses.includes(course.id) ? (
                 <div className="absolute top-4 right-0 z-10">
-                  <Badge className="bg-green-500 text-white font-medium rounded-l-full rounded-r-none py-1 px-3">
+                  <Badge className="bg-[#FA8500] text-white font-medium rounded-l-full rounded-r-none py-1 px-3">
                     Enrolled
                   </Badge>
                 </div>
               ) : (
                 course.video_count > 10 && (
                   <div className="absolute top-4 right-0 z-10">
-                    <Badge className="bg-amber-500 text-white font-medium rounded-l-full rounded-r-none py-1 px-3">
+                    <Badge className="bg-[#FA8500] text-white font-medium rounded-l-full rounded-r-none py-1 px-3">
                       Popular
                     </Badge>
                   </div>
@@ -372,7 +372,7 @@ const UserPage = () => {
                   <Button
                     className={`flex-1 ${
                       enrolledCourses.includes(course.id)
-                        ? "bg-green-600 hover:bg-green-700"
+                        ? "bg-white hover:bg-[#FFAB49]"
                         : "bg-primary hover:bg-primary/90"
                     } cursor-pointer`}
                     onClick={(e) => handleEnroll(e, course.id, course.title)}
