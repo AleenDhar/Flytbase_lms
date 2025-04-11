@@ -319,8 +319,11 @@ const GlossaryPage = () => {
     : glossaryData;
 
   const scrollToSection = (letter: string) => {
-    if (sectionRefs.current[letter]) {
-      sectionRefs.current[letter]?.scrollIntoView({ behavior: "smooth" });
+    const element = sectionRefs.current[letter];
+    if (element) {
+      const yOffset = -100; // Adjust for header
+      const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
+      window.scrollTo({top: y, behavior: 'smooth'});
     }
   };
 
@@ -403,7 +406,7 @@ const GlossaryPage = () => {
               return (
                 <div 
                   key={letter}
-                  ref={(el) => (sectionRefs.current[letter] = el)}
+                  ref={el => { sectionRefs.current[letter] = el }}
                   className="mb-12"
                 >
                   <h2 className="text-3xl font-bold mb-6 border-b border-gray-800 pb-2">
