@@ -1250,7 +1250,7 @@ const CourseDetail = () => {
         </div>
 
         {/* Toggle Button that moves with the Table of Contents */}
-        {/* <motion.button
+        <motion.button
           data-menu-toggle
           onClick={toggleTableOfContents}
           className="absolute top-5 right-[-24] transform translate-x-1/2
@@ -1263,13 +1263,13 @@ const CourseDetail = () => {
           ) : (
             <Menu className="h-5 w-5 text-gray-300 cursor-pointer" />
           )}
-        </motion.button> */}
+        </motion.button>
       </motion.div>
 
       {/* Main Content */}
       <div className="w-full  flex flex-col justify-center items-center">
         {/* Main Content Area */}
-        <div className=" w-full mx-auto">
+        <div className=" w-full mx-auto  ">
           {/* Video Section */}
           <motion.div
             className="mb-6"
@@ -1329,7 +1329,7 @@ const CourseDetail = () => {
                 </Button>
               </div>
             </div> */}
-            <div className="  mx-10">
+            <div className=" ">
               {/* <div className="w-5xl"> */}
               <VideoNavigation
                 videos={videos}
@@ -1370,7 +1370,7 @@ const CourseDetail = () => {
               {/* </div> */}
             </div>
           </motion.div>
-          <div className="  mx-10">
+          <div className="  mx-28">
             {/* Quiz Section */}
             {questions.length > 0 && (
               <motion.div

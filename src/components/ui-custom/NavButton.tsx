@@ -36,10 +36,10 @@ const NavButton = ({
       onMouseLeave={() => setIsHovered(false)}
     >
       <Link href={href}>
-        <div className="relative w-[150px] md:w-[160px] h-[40px] overflow-hidden rounded bg-black shadow-sm">
+        <div className="relative w-[150px] md:w-[160px] h-[40px] overflow-hidden rounded bg-[#171717] border border-white">
           {/* Animated background */}
           <motion.div
-            className="absolute inset-0 bg-black rounded"
+            className="absolute inset-0 bg-white rounded"
             initial={{ scale: 0, opacity: 0 }}
             animate={{
               scale: isHovered ? 1 : 0,
@@ -51,7 +51,7 @@ const NavButton = ({
 
           {/* Left arrow - starts off-screen left and moves in */}
           <motion.div
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-white"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-black"
             initial={{ x: -20, opacity: 0 }}
             animate={{
               x: isHovered ? 0 : -20,
@@ -68,7 +68,7 @@ const NavButton = ({
 
           {/* Right arrow - starts off-screen right and moves in */}
           <motion.div
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-white rotate-180"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-black rotate-180"
             initial={{ x: 20, opacity: 0 }}
             animate={{
               x: isHovered ? 0 : -20,
@@ -110,7 +110,7 @@ const NavButton = ({
               ease: "easeOut",
             }}
           >
-            <span className="font-medium text-white">{children}</span>
+            <span className="font-medium text-black">{children}</span>
           </motion.div>
         </div>
       </Link>

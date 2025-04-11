@@ -399,7 +399,7 @@ const Layout = ({ children }: LayoutProps) => {
   return (
     <div className="min-h-screen flex flex-col">
       <nav
-        className={`w-full sticky top-0 z-50 transition-all duration-200 ${
+        className={`w-full sticky top-0 z-50 transition-all duration-200  ${
           isScrolled
             ? "bg-card/90 backdrop-blur-md shadow-md"
             : "bg-card shadow-sm"
@@ -417,15 +417,43 @@ const Layout = ({ children }: LayoutProps) => {
               </Link>
             </div>
 
-            <div className="hidden md:flex items-center space-x-6">
+            <div className="hidden md:flex items-center space-x-6 ">
               {/* Desktop navigation */}
-              <div className="flex items-center space-x-5">
+              <div className="flex items-center space-x-5 ">
                 <NavLink href="/assignment">
                   <span className="text-sm md:text-base font-normal">CERTIFICATES</span>
                 </NavLink>
                 <NavLink href="/course">
                   <span className="text-sm md:text-base font-normal">COURSES</span>
                 </NavLink>
+                
+                {/* Resources Dropdown */}
+                <div className="relative group mx-2">
+                  <div className="flex items-center cursor-pointer">
+                    <span className="text-sm md:text-sm font-normal">RESOURCES</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ml-1 transition-transform duration-200 group-hover:-rotate-180">
+                      <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                  </div>
+                  
+                  {/* Dropdown Menu */}
+                  <div className="absolute left-0 mt-2 w-48 bg-card rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 border border-border">
+                    <div className="py-1">
+                      <Link href="/glossary" className="block px-4 py-2 text-sm hover:bg-accent hover:text-primary">
+                      Glossary
+                      </Link>
+                      <Link href="/tutorials" className="block px-4 py-2 text-sm hover:bg-accent hover:text-primary">
+                        Tutorials
+                      </Link>
+                      <Link href="/webinars" className="block px-4 py-2 text-sm hover:bg-accent hover:text-primary">
+                        Webinars
+                      </Link>
+                      <Link href="/docs" className="block px-4 py-2 text-sm hover:bg-accent hover:text-primary">
+                        Documentation
+                      </Link>
+                    </div>
+                  </div>
+                </div>
               </div>
               <div className="h-8 w-px bg-border/70"></div>
               <UserGreetText />
@@ -455,16 +483,37 @@ const Layout = ({ children }: LayoutProps) => {
             id="mobile-menu"
             className="md:hidden bg-card py-4 px-4 shadow-lg border-t border-border animate-in slide-in-from-top duration-300"
           >
+              <div onClick={() => setIsMenuOpen(false)}>
+                <NavLink href="/course">
+                  <span className="text-sm ">COURSES</span>
+                </NavLink>
+              </div>
             <div className="space-y-1 flex flex-col">
               <div onClick={() => setIsMenuOpen(false)}>
                 <NavLink href="/assignment">
-                  <span className="text-sm font-normal">CERTIFICATES</span>
+                  <span className="text-sm ">CERTIFICATES</span>
                 </NavLink>
               </div>
-              <div onClick={() => setIsMenuOpen(false)}>
-                <NavLink href="/course">
-                  <span className="text-sm font-normal">COURSES</span>
-                </NavLink>
+              
+              {/* Resources section in mobile */}
+              <div className="mt-2 pt-2 border-t border-border/30">
+                <div className="px-3 py-2">
+                  <h3 className="text-sm font-semibold">Resources</h3>
+                </div>
+                <div className="space-y-1 pl-3">
+                  <Link href="/blog" className="block py-2 text-sm hover:text-primary" onClick={() => setIsMenuOpen(false)}>
+                    Blog
+                  </Link>
+                  <Link href="/tutorials" className="block py-2 text-sm hover:text-primary" onClick={() => setIsMenuOpen(false)}>
+                    Tutorials
+                  </Link>
+                  <Link href="/webinars" className="block py-2 text-sm hover:text-primary" onClick={() => setIsMenuOpen(false)}>
+                    Webinars
+                  </Link>
+                  <Link href="/docs" className="block py-2 text-sm hover:text-primary" onClick={() => setIsMenuOpen(false)}>
+                    Documentation
+                  </Link>
+                </div>
               </div>
               
               {/* User profile section in mobile menu */}

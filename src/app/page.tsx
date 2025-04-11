@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ModeToggle } from "@/components/theme/mode-toggle";
 import { ArrowRight, Search, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
 import Layout from "@/components/Layout/layout";
 import ParallexCard from "@/components/ParallexCard";
 import FAQ from "@/components/FAQ";
@@ -171,13 +172,53 @@ const VideoLandingPage = () => {
                   </h1>
 
                   <div className="mt-8">
-                    <Button
-                      size="lg"
-                      className="bg-primary hover:bg-primary/90 rounded-full px-8"
+                    <motion.div
+                      className="relative inline-block cursor-pointer"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      transition={{ 
+                        type: "spring", 
+                        stiffness: 400, 
+                        damping: 15
+                      }}
+                      onClick={() => window.location.href = '/course'}
                     >
-                      <span>Start Learning</span>
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
+                      <Button
+                        size="lg"
+                        className="bg-[#171717]  text-white rounded-full px-8 relative z-10 overflow-hidden"
+                        asChild
+                      >
+                        <motion.div className="group">
+                          <div className="flex items-center relative z-10">
+                            <span className="mr-2 relative z-10 text-white group-hover:text-black transition-colors duration-300">
+                              Start Learning
+                            </span>
+                            <motion.span
+                              animate={{ x: [0, 5, 0] }}
+                              transition={{ 
+                                repeat: Infinity, 
+                                repeatType: "reverse", 
+                                duration: 1,
+                                ease: "easeInOut"
+                              }}
+                              className="relative z-10 text-white group-hover:text-black transition-colors duration-300"
+                            >
+                              <ArrowRight className="h-4 w-4" />
+                            </motion.span>
+                          </div>
+                          <motion.div 
+                            className="absolute inset-0 bg-white rounded-full z-0"
+                            initial={{ scale: 0, opacity: 0 }}
+                            whileHover={{ 
+                              scale: 1, 
+                              opacity: 1,
+                              borderRadius: "0%",
+                              transition: { duration: 0.3, ease: [0.19, 1.0, 0.22, 1.0] } 
+                            }}
+                          />
+                        </motion.div>
+                      </Button>
+                    </motion.div>
                   </div>
                 </div>
               </div>
