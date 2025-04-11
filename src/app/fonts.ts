@@ -1,5 +1,4 @@
 // In src/app/fonts.ts
-
 import localFont from "next/font/local";
 
 export const atlassianSans = localFont({
@@ -30,5 +29,9 @@ export const atlassianSans = localFont({
       style: "normal",
     },
   ],
+  display: "swap",
   variable: "--font-atlassian-sans",
 });
+
+// Set this as the primary font for the application
+export const primaryFont = atlassianSans;

@@ -25,14 +25,21 @@ import {
   Linkedin,
   Github,
   Youtube,
+  User,
+  UserCircle,
+  Settings,
 } from "lucide-react";
 import { ModeToggle } from "@/components/theme/mode-toggle";
 import UserGreetText from "@/components/UserGreetText";
 import LoginButton from "@/components/LoginLogoutButton";
+import NavLink from "@/components/ui-custom/NavLink";
+import NavButton from "@/components/ui-custom/NavButton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import React, { ReactNode } from "react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
+import { signout } from "@/lib/auth-actions";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -73,6 +80,7 @@ const Layout = ({ children }: LayoutProps) => {
   const supabase = createClient();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [user, setUser] = useState<any>(null);
 
   // For mobile view determination
   const [isMobile, setIsMobile] = useState(false);
@@ -83,8 +91,20 @@ const Layout = ({ children }: LayoutProps) => {
   // Check if component is mounted to avoid hydration issues with theme
   useEffect(() => {
     setMounted(true);
-    // Initial check for mobile view
-    setIsMobile(window.innerWidth < 768);
+    
+    // Only run client-side code after hydration
+    if (typeof window !== 'undefined') {
+      // Initial check for mobile view
+      setIsMobile(window.innerWidth < 768);
+      
+      // Fetch user data
+      const fetchUser = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        setUser(user);
+      };
+      
+      fetchUser();
+    }
   }, []);
 
   // Add scroll event listener
@@ -130,6 +150,19 @@ const Layout = ({ children }: LayoutProps) => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [isMenuOpen]);
+  
+  // Mobile logout handler
+  const handleMobileLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      await signout();
+      router.push("/");
+    } catch (error) {
+      console.error("Logout failed:", error);
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   // Also close menu when window is resized to desktop size
   useEffect(() => {
@@ -151,7 +184,9 @@ const Layout = ({ children }: LayoutProps) => {
 
   // Toggle theme handler for mobile view
   const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark");
+    if (mounted) {
+      setTheme(theme === "dark" ? "light" : "dark");
+    }
   };
 
   // Logout handler with Supabase
@@ -182,14 +217,7 @@ const Layout = ({ children }: LayoutProps) => {
 
   // Get logo based on theme and screen size
   const getLogo = () => {
-    // if (!mounted) return "flybase_academy_logo.svg"; // Default before hydration
-
-    // if (isMobile) {
-    //   return theme === "dark"
-    //     ? "flybase_academy_logo.svg"
-    //     : "flybase_academy_logo.svg";
-    // }
-
+    // Make sure we return the same thing on server and client for initial render
     return "https://cdn.prod.website-files.com/65cf50589440654730dd6e6f/65d82ef1cf52cae0205985ca_FB%20Academy.svg";
   };
 
@@ -378,96 +406,29 @@ const Layout = ({ children }: LayoutProps) => {
         }`}
       >
         <div className="mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
+          <div className="flex justify-between h-16 md:h-20">
             <div className="flex items-center">
               <Link className="flex items-center" href="/">
                 <img
                   src={getLogo()}
                   alt="Flytbase Academy"
-                  className="h-10 w-auto sm:w-auto max-w-[72px] sm:max-w-[200px] md:max-w-[280px] object-contain"
+                  className="h-12 xs:h-11 sm:h-11 md:h-14 lg:h-16 w-auto max-w-[180px] xs:max-w-[170px] sm:max-w-[190px] md:max-w-[240px] lg:max-w-[280px] object-contain"
                 />
               </Link>
-
-              {/* Desktop navigation */}
-              <div className="hidden md:flex items-center ml-10 space-x-1">
-                <Link
-                  href="/dashboard"
-                  className="px-3 py-2 rounded-md text-sm font-medium text-foreground hover:text-primary hover:bg-accent/30 transition-colors duration-300"
-                >
-                  Dashboard
-                </Link>
-                <Link
-                  href="/assignment"
-                  className="px-3 py-2 rounded-md text-sm font-medium text-foreground hover:text-primary hover:bg-accent/30 transition-colors duration-300"
-                >
-                  Assessment
-                </Link>
-                {/* <Link
-                  href="/certificate"
-                  className="px-3 py-2 rounded-md text-sm font-medium text-foreground hover:text-primary hover:bg-accent/30 transition-colors duration-300"
-                >
-                  Certificate
-                </Link> */}
-                <Link
-                  href="/course"
-                  className="px-3 py-2 rounded-md text-sm font-medium text-foreground hover:text-primary hover:bg-accent/30 transition-colors duration-300"
-                >
-                  Courses
-                </Link>
-                {isAdmin && (
-                  <Link
-                    href="/admin/dashboard"
-                    className="px-3 py-2 rounded-md text-sm font-medium text-primary hover:bg-primary/10 transition-colors duration-300"
-                  >
-                    Admin Dashboard
-                  </Link>
-                )}
-
-                {/* Dropdown menu example */}
-                <div className="relative group">
-                  <div className="absolute left-0 mt-2 w-48 bg-card rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 border border-border">
-                    <div className="py-1 rounded-md">
-                      <Link
-                        href="/blog"
-                        className="block px-4 py-2 text-sm text-foreground hover:bg-accent hover:text-primary"
-                      >
-                        Blog
-                      </Link>
-                      <Link
-                        href="/tutorials"
-                        className="block px-4 py-2 text-sm text-foreground hover:bg-accent hover:text-primary"
-                      >
-                        Tutorials
-                      </Link>
-                      <Link
-                        href="/webinars"
-                        className="block px-4 py-2 text-sm text-foreground hover:bg-accent hover:text-primary"
-                      >
-                        Webinars
-                      </Link>
-                      <Link
-                        href="/docs"
-                        className="block px-4 py-2 text-sm text-foreground hover:bg-accent hover:text-primary"
-                      >
-                        Documentation
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
 
-            <div className="hidden md:flex items-center space-x-4">
-              {/* <ModeToggle /> */}
-              <div className="h-6 w-px bg-border/70"></div>
+            <div className="hidden md:flex items-center space-x-6">
+              {/* Desktop navigation */}
+              <div className="flex items-center space-x-5">
+                <NavLink href="/assignment">
+                  <span className="text-sm md:text-base font-normal">CERTIFICATES</span>
+                </NavLink>
+                <NavLink href="/course">
+                  <span className="text-sm md:text-base font-normal">COURSES</span>
+                </NavLink>
+              </div>
+              <div className="h-8 w-px bg-border/70"></div>
               <UserGreetText />
-              {/* <button
-                onClick={handleLogout}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-full text-destructive hover:bg-destructive/10 border border-destructive/30 transition-colors"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Logout</span>
-              </button> */}
             </div>
 
             {/* Mobile menu button */}
@@ -494,90 +455,82 @@ const Layout = ({ children }: LayoutProps) => {
             id="mobile-menu"
             className="md:hidden bg-card py-4 px-4 shadow-lg border-t border-border animate-in slide-in-from-top duration-300"
           >
-            <div className="space-y-1">
-              <Link href="/dashboard" onClick={() => setIsMenuOpen(false)}>
-                <span className="flex items-center gap-2 text-foreground hover:text-primary hover:bg-accent/50 transition-colors duration-300 py-3 px-3 rounded-md">
-                  <Home className="w-5 h-5" />
-                  <span>Dashboard</span>
-                </span>
-              </Link>
-
-              <Link href="/assignment" onClick={() => setIsMenuOpen(false)}>
-                <span className="flex items-center gap-2 text-foreground hover:text-primary hover:bg-accent/50 transition-colors duration-300 py-3 px-3 rounded-md">
-                  <BookText className="w-5 h-5" />
-                  <span>Assignments</span>
-                </span>
-              </Link>
-
-              <Link href="/course" onClick={() => setIsMenuOpen(false)}>
-                <span className="flex items-center gap-2 text-foreground hover:text-primary hover:bg-accent/50 transition-colors duration-300 py-3 px-3 rounded-md">
-                  <GraduationCap className="w-5 h-5" />
-                  <span>Courses</span>
-                </span>
-              </Link>
-              {isAdmin && (
-                <Link
-                  href="/admin/dashboard"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <span className="flex items-center gap-2 text-primary font-medium hover:bg-primary/10 transition-colors duration-300 py-3 px-3 rounded-md">
-                    <Users className="w-5 h-5" />
-                    <span>Admin Dashboard</span>
-                  </span>
-                </Link>
-              )}
-
-              {/* More mobile menu items */}
-              <div className="py-2 border-t border-border mt-2">
-                <h3 className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Resources
-                </h3>
-                <Link href="/blog" onClick={() => setIsMenuOpen(false)}>
-                  <span className="flex items-center gap-2 text-foreground hover:text-primary hover:bg-accent/50 transition-colors duration-300 py-2 px-3 pl-6 rounded-md text-sm">
-                    Blog
-                  </span>
-                </Link>
-                <Link href="/tutorials" onClick={() => setIsMenuOpen(false)}>
-                  <span className="flex items-center gap-2 text-foreground hover:text-primary hover:bg-accent/50 transition-colors duration-300 py-2 px-3 pl-6 rounded-md text-sm">
-                    Tutorials
-                  </span>
-                </Link>
+            <div className="space-y-1 flex flex-col">
+              <div onClick={() => setIsMenuOpen(false)}>
+                <NavLink href="/assignment">
+                  <span className="text-sm font-normal">CERTIFICATES</span>
+                </NavLink>
               </div>
+              <div onClick={() => setIsMenuOpen(false)}>
+                <NavLink href="/course">
+                  <span className="text-sm font-normal">COURSES</span>
+                </NavLink>
+              </div>
+              
+              {/* User profile section in mobile menu */}
+              <div className="pt-4 mt-4 border-t border-border">
+                {user ? (
+                  <>
+                    {/* User profile area in mobile */}
+                    <div className="px-3 py-2 text-sm text-muted-foreground">
+                      Signed in as{" "}
+                      <span className="font-medium text-foreground">
+                        {user.user_metadata?.full_name || user.email || "User"}
+                      </span>
+                    </div>
+                    
+                    {/* Dashboard link */}
+                    <button
+                      onClick={() => {
+                        router.push("/dashboard");
+                        setIsMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2 text-foreground hover:text-primary hover:bg-accent/50 transition-colors duration-300 py-3 px-3 rounded-md"
+                    >
+                      <Home className="w-5 h-5" />
+                      <span>Dashboard</span>
+                    </button>
+                    
+                    {/* Admin Dashboard link - only shown if user is admin */}
+                    {isAdmin && (
+                      <button
+                        onClick={() => {
+                          router.push("/admin/dashboard");
+                          setIsMenuOpen(false);
+                        }}
+                        className="w-full flex items-center gap-2 text-foreground hover:text-primary hover:bg-accent/50 transition-colors duration-300 py-3 px-3 rounded-md"
+                      >
+                        <Users className="w-5 h-5" />
+                        <span>Admin Dashboard</span>
+                      </button>
+                    )}
 
-              {/* Custom theme toggle for mobile that works consistently */}
-              <button
-                onClick={toggleTheme}
-                className="w-full flex items-center justify-between text-foreground hover:bg-accent/50 transition-colors duration-300 py-3 px-3 rounded-md"
-              >
-                <div className="flex items-center gap-2">
-                  {theme === "dark" ? (
-                    <Moon className="w-5 h-5" />
-                  ) : (
-                    <Sun className="w-5 h-5" />
-                  )}
-                  <span>Theme</span>
-                </div>
-                <span className="text-sm font-medium">
-                  {theme === "dark" ? "Dark" : "Light"}
-                </span>
-              </button>
-
-              <div className="pt-2 mt-2 border-t border-border">
-                {/* User profile area in mobile */}
-                <div className="px-3 py-2 text-sm text-muted-foreground">
-                  Signed in as{" "}
-                  <span className="font-medium text-foreground">John Doe</span>
-                </div>
-
-                {/* Functional logout button */}
-                {/* <button
-                  onClick={handleLogout}
-                  disabled={isLoggingOut}
-                  className="w-full flex items-center gap-2 text-destructive hover:bg-destructive/10 transition-colors duration-300 py-3 px-3 rounded-md"
-                >
-                  <LogOut className="w-5 h-5" />
-                  <span>{isLoggingOut ? "Logging out..." : "Logout"}</span>
-                </button> */}
+                    {/* Functional logout button */}
+                    <button
+                      onClick={() => {
+                        handleMobileLogout();
+                        setIsMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2 text-destructive hover:bg-destructive/10 transition-colors duration-300 py-3 px-3 rounded-md"
+                    >
+                      <LogOut className="w-5 h-5" />
+                      <span>{isLoggingOut ? "Logging out..." : "Logout"}</span>
+                    </button>
+                  </>
+                ) : (
+                  <div className="px-3 py-3">
+                    <button
+                      onClick={() => {
+                        router.push("/signup");
+                        setIsMenuOpen(false);
+                      }}
+                      className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors duration-300 py-2 px-3 rounded-md"
+                    >
+                      <span>Get Started</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -596,7 +549,7 @@ const Layout = ({ children }: LayoutProps) => {
               <img
                 src={getLogo()}
                 alt="Flytbase Academy"
-                className="h-8 w-auto mb-4"
+                className="h-10 xs:h-9 sm:h-10 md:h-10 w-auto mb-4 max-w-[160px] sm:max-w-[160px]"
               />
               <p className="text-sm text-muted-foreground mb-4">
                 Empowering learners worldwide with cutting-edge drone technology

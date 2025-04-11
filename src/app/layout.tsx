@@ -1,20 +1,9 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { TestProvider } from "@/contexts/TestContext";
 import { Toaster } from "@/components/ui/sonner";
-import { atlassianSans } from "./fonts"; // Import custom font
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import { primaryFont } from "./fonts"; // Import custom font
 
 export const metadata: Metadata = {
   title: "FB Academy",
@@ -27,16 +16,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
-        // Include the new custom font variable together with your existing fonts
-        className={`${geistSans.variable} ${geistMono.variable} ${atlassianSans.variable} antialiased`}
+        // Only use the custom font
+        className={`${primaryFont.variable} antialiased`}
+        suppressHydrationWarning
       >
         <TestProvider>
           <ThemeProvider
             attribute="class"
-            defaultTheme="system"
-            enableSystem
+            defaultTheme="light"
+            enableSystem={false}
             disableTransitionOnChange
           >
             <main>{children}</main>
