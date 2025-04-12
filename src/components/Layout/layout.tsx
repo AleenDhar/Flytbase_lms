@@ -483,15 +483,15 @@ const Layout = ({ children }: LayoutProps) => {
             id="mobile-menu"
             className="md:hidden bg-card py-4 px-4 shadow-lg border-t border-border animate-in slide-in-from-top duration-300"
           >
-              <div onClick={() => setIsMenuOpen(false)}>
-                <NavLink href="/course">
-                  <span className="text-sm ">COURSES</span>
-                </NavLink>
-              </div>
             <div className="space-y-1 flex flex-col">
               <div onClick={() => setIsMenuOpen(false)}>
                 <NavLink href="/assignment">
                   <span className="text-sm ">CERTIFICATES</span>
+                </NavLink>
+              </div>
+              <div onClick={() => setIsMenuOpen(false)}>
+                <NavLink href="/course">
+                  <span className="text-sm ">COURSES</span>
                 </NavLink>
               </div>
               
@@ -501,8 +501,8 @@ const Layout = ({ children }: LayoutProps) => {
                   <h3 className="text-sm font-semibold">Resources</h3>
                 </div>
                 <div className="space-y-1 pl-3">
-                  <Link href="/blog" className="block py-2 text-sm hover:text-primary" onClick={() => setIsMenuOpen(false)}>
-                    Blog
+                  <Link href="/glossary" className="block py-2 text-sm hover:text-primary" onClick={() => setIsMenuOpen(false)}>
+                    Glossary
                   </Link>
                   <Link href="/tutorials" className="block py-2 text-sm hover:text-primary" onClick={() => setIsMenuOpen(false)}>
                     Tutorials
