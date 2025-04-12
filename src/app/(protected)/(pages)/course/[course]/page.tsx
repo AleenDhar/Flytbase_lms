@@ -90,14 +90,14 @@ const CourseDetail = () => {
     score: number;
     total: number;
   }>({ shown: false, score: 0, total: 0 });
-  const [tableOfContentsVisible, setTableOfContentsVisible] = useState(false);
+  // Sidebar state removed
   // New state for the lesson completed modal
   const [lessonCompletedModal, setLessonCompletedModal] = useState(false);
   // New state for the progress percentage
   const [progressPercentage, setProgressPercentage] = useState(0);
   // Add this near your other state variables
   const [initialVideoLoaded, setInitialVideoLoaded] = useState(false);
-  const tocRef = useRef<HTMLDivElement>(null);
+  // Sidebar ref removed
   const router = useRouter();
 
   const shootRealisticConfetti = () => {
@@ -414,33 +414,7 @@ const CourseDetail = () => {
     }
   }, [completedVideos, videos]);
 
-  // Close TOC when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        tocRef.current &&
-        !tocRef.current.contains(event.target as Node) &&
-        !(event.target as HTMLElement).closest("[data-menu-toggle]")
-      ) {
-        setTableOfContentsVisible(false);
-      }
-    };
-
-    // Close TOC when pressing Escape key
-    const handleEscKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setTableOfContentsVisible(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscKey);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscKey);
-    };
-  }, []);
+  // Sidebar event handling removed
   const fetchQuestionsForVideo = async (videoRowId: number) => {
     const supabase = createClient();
 
@@ -769,9 +743,7 @@ const CourseDetail = () => {
     return (completedVideos.size / videos.length) * 100;
   };
 
-  const toggleTableOfContents = () => {
-    setTableOfContentsVisible(!tableOfContentsVisible);
-  };
+  // Sidebar toggle removed
 
   // Function to close the lesson completed modal and move to the next lesson
   const handleNextLesson = () => {
@@ -1160,111 +1132,7 @@ const CourseDetail = () => {
         )}
       </AnimatePresence>
 
-      {/* Table of Contents Sidebar with animated toggle button */}
-      <motion.div
-        initial={{ x: -392 }}
-        animate={{ x: tableOfContentsVisible ? 0 : -392 }}
-        transition={{
-          type: "spring",
-          stiffness: 300,
-          damping: 30,
-        }}
-        className="fixed top-20 left-2 bottom-16 z-50 flex"
-      >
-        {/* Table of Contents Panel */}
-        <div
-          ref={tocRef}
-          className="bg-[#121212] border-r border-gray-800 shadow-lg w-96 h-full overflow-hidden flex flex-col rounded-2xl"
-        >
-          {/* Header */}
-          <div className="p-4 border-b border-gray-800 bg-[#1A1A1A] rounded-2xl">
-            <div>
-              <h2 className="text-xl font-bold text-[#2C7BF2]  tracking-wide">
-                <p className="text-sm font-bold text-white mt-1">Course</p>{" "}
-                {courseTitle}
-              </h2>
-            </div>
-          </div>
-
-          {/* Sidebar Content */}
-          <div className="overflow-y-auto flex-1 overflow-auto scrollbar-hide bg-black">
-            {videos.map((video, index) => {
-              const isCurrent = currentVideoIndex === index;
-              const isCompleted = completedVideos.has(video.id);
-              const progress = videoProgressMap[video.id] || 0;
-
-              return (
-                <div
-                  key={video.id}
-                  onClick={() => handleVideoSelect(index)}
-                  className={`
-        relative cursor-pointer transition-colors 
-        ${isCurrent ? "bg-[#2C7BF2]/30" : "hover:bg-gray-800/50"}
-      `}
-                >
-                  {/* Purple highlight bar for current video */}
-                  {isCurrent && (
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#2C7BF2] rounded-r-sm" />
-                  )}
-
-                  <div className="flex items-center justify-between p-3">
-                    {/* Left: Icon + Title */}
-                    <div className="flex items-center space-x-3">
-                      <CircularProgress
-                        progress={progress}
-                        completed={isCompleted}
-                        isActive={isCurrent}
-                        videoNumber={String(index + 1).padStart(2, "0")}
-                      />
-
-                      <p
-                        className={`font-medium text-sm
-              ${
-                isCurrent
-                  ? "text-white"
-                  : isCompleted
-                  ? "text-gray-300"
-                  : "text-gray-300"
-              }
-            `}
-                      >
-                        {String(index + 1).padStart(2, "0")}.{" "}
-                        {video.title.split(" - ").pop() || video.title}
-                      </p>
-                    </div>
-
-                    {/* Right: Time + Badges */}
-                    <div className="flex items-center space-x-2">
-                      {/* {progress > 0 && progress < 90 && !isCompleted && (
-                        <span className="text-xs text-gray-400">
-                          quiz pending
-                        </span>
-                      )} */}
-                      {/* <Badge>quiz pending</Badge> */}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Toggle Button that moves with the Table of Contents */}
-        <motion.button
-          data-menu-toggle
-          onClick={toggleTableOfContents}
-          className="absolute top-5 right-[-24] transform translate-x-1/2
-                bg-[#242424] rounded-r-xl border border-l-0 border-gray-800
-                hover:bg-gray-800 transition-colors h-12 w-12
-                flex items-center justify-center focus:outline-none"
-        >
-          {tableOfContentsVisible ? (
-            <ArrowLeft className="h-5 w-5 text-gray-300 cursor-pointer" />
-          ) : (
-            <Menu className="h-5 w-5 text-gray-300 cursor-pointer" />
-          )}
-        </motion.button>
-      </motion.div>
+      {/* Floating sidebar removed */}
 
       {/* Main Content - YouTube-style layout */}
       <div className="w-full flex flex-col justify-center items-center">
@@ -1290,12 +1158,48 @@ const CourseDetail = () => {
                   </div>
                 </div>
                 
-                {/* Video Navigation */}
-                <VideoNavigation
-                  videos={videos}
-                  currentVideoIndex={currentVideoIndex}
-                  handleVideoSelect={handleVideoSelect}
-                />
+                {/* Video Navigation - Redesigned with Title */}
+                <div className="bg-[#1A1A1A] mt-1 px-6 py-4 rounded-lg shadow-md">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mb-2">
+                    <h2 className="text-xl font-semibold text-white truncate max-w-full">
+                      {currentVideo.title}
+                    </h2>
+                    
+                    <div className="flex items-center">
+                      <span className="text-sm text-gray-400 mr-3">
+                        Lesson {currentVideoIndex + 1} of {videos.length}
+                      </span>
+                      <Badge className="bg-[#2C7BF2] text-white">
+                        {completedVideos.has(currentVideo.id) ? "Completed" : 
+                        videoProgressMap[currentVideo.id] > 0 ? "In Progress" : "Not Started"}
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-800">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => currentVideoIndex > 0 && handleVideoSelect(currentVideoIndex - 1)}
+                      disabled={currentVideoIndex === 0}
+                      className="text-white hover:bg-gray-800 disabled:opacity-50 h-9 px-4"
+                    >
+                      <ChevronLeft className="h-5 w-5 mr-2" />
+                      Previous Lesson
+                    </Button>
+                    
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => currentVideoIndex < videos.length - 1 && handleVideoSelect(currentVideoIndex + 1)}
+                      disabled={currentVideoIndex === videos.length - 1}
+                      className="text-white hover:bg-gray-800 disabled:opacity-50 h-9 px-4"
+                    >
+                      Next Lesson
+                      <ChevronRight className="h-5 w-5 ml-2" />
+                    </Button>
+                  </div>
+                </div>
 
                 {/* Tabs Section */}
                 <div className="mt-6">
@@ -1532,7 +1436,7 @@ const CourseDetail = () => {
             </div>
 
             {/* Right side - Video Playlist */}
-            <div className="w-full lg:w-[35%] bg-[#1A1A1A] rounded-lg overflow-hidden">
+            <div className="w-full lg:w-[35%] bg-[#1A1A1A] rounded-lg overflow-hidden flex flex-col self-start">
               <div className="p-4 border-b border-gray-800">
                 <h2 className="text-lg font-bold text-white">{courseTitle}</h2>
                 <div className="flex items-center mt-1 text-sm text-gray-400">
@@ -1550,8 +1454,8 @@ const CourseDetail = () => {
                 </div>
               </div>
 
-              {/* Scrollable video list */}
-              <div className="overflow-y-auto max-h-[calc(100vh-280px)] scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+              {/* Scrollable video list - fixed height for YouTube-like experience */}
+              <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent h-[500px]">
                 {videos.map((video, index) => {
                   const isCurrent = currentVideoIndex === index;
                   const isCompleted = completedVideos.has(video.id);
@@ -1609,31 +1513,7 @@ const CourseDetail = () => {
           </div>
         </div>
       </div>
-      {/* Bottom footer with links */}
-      {/* <div className="fixed bottom-0 left-0 right-0 bg-[#161616] border-t border-gray-800 px-4 py-3 flex justify-between items-center z-10">
-        <div className="flex items-center space-x-4">
-          <Button
-            variant="link"
-            size="sm"
-            className="text-[#2C7BF2] hover:text-[#0E61DD] text-xs sm:text-sm p-0"
-          >
-            Lesson's links
-          </Button>
-          <Button
-            variant="link"
-            size="sm"
-            className="text-[#0E61DD] hover:text-[#2C7BF2] text-xs sm:text-sm p-0"
-            onClick={toggleTableOfContents}
-          >
-            Table of content
-          </Button>
-        </div>
-        <div>
-          <span className="text-xs sm:text-sm text-gray-400">
-            {currentVideoIndex + 1}/{videos.length}
-          </span>
-        </div>
-      </div> */}
+      {/* Footer removed */}
 
       {/* Progress Bar */}
       <div className="fixed bottom-0 left-0 right-0 h-1 bg-gray-800 z-20">
