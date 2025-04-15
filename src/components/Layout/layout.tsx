@@ -335,15 +335,15 @@ const Layout = ({ children }: LayoutProps) => {
       links: [
         { name: "Courses", href: "/course" },
         { name: "Tutorials", href: "/tutorials" },
-        { name: "Resources", href: "/resources" },
-        { name: "Blog", href: "/blog" },
+        { name: "Docs", href: "https://docs.flytbase.com/" },
+        { name: "Blog", href: "https://www.flytbase.com/blog" },
       ],
     },
     {
       title: "Support",
       links: [
         { name: "Help Center", href: "/help" },
-        { name: "Contact Us", href: "/contact" },
+        { name: "Contact Us", href: "https://www.flytbase.com/contact" },
         { name: "FAQ", href: "/faq" },
         { name: "Community", href: "/community" },
       ],
@@ -397,7 +397,7 @@ const Layout = ({ children }: LayoutProps) => {
     checkAdminStatus();
   }, []);
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col ">
       <nav
         className={`w-full sticky top-0 z-50 transition-all duration-200  ${
           isScrolled
@@ -416,15 +416,16 @@ const Layout = ({ children }: LayoutProps) => {
                 />
               </Link>
             </div>
+            
 
             <div className="hidden md:flex items-center space-x-6 ">
               {/* Desktop navigation */}
               <div className="flex items-center space-x-5 ">
                 <NavLink href="/assignment">
-                  <span className="text-sm md:text-base font-normal">CERTIFICATES</span>
+                  <span className="text-sm md:text-base font-normal">Certifications</span>
                 </NavLink>
                 <NavLink href="/course">
-                  <span className="text-sm md:text-base font-normal">COURSES</span>
+                  <span className="text-sm md:text-base font-normal">Courses</span>
                 </NavLink>
                 
                 {/* Resources Dropdown */}
@@ -445,10 +446,10 @@ const Layout = ({ children }: LayoutProps) => {
                       <Link href="/tutorials" className="block px-4 py-2 text-sm hover:bg-accent hover:text-primary">
                         Tutorials
                       </Link>
-                      <Link href="/webinars" className="block px-4 py-2 text-sm hover:bg-accent hover:text-primary">
+                      <Link target="_blank" href="https://www.flytbase.com/webinars?utm_source=navbar&utm_medium=nav_webinar&utm_id=webinar_lead" className="block px-4 py-2 text-sm hover:bg-accent hover:text-primary">
                         Webinars
                       </Link>
-                      <Link href="/docs" className="block px-4 py-2 text-sm hover:bg-accent hover:text-primary">
+                      <Link target="_blank" href="https://docs.flytbase.com/" className="block px-4 py-2 text-sm hover:bg-accent hover:text-primary">
                         Documentation
                       </Link>
                     </div>
@@ -486,17 +487,17 @@ const Layout = ({ children }: LayoutProps) => {
             <div className="space-y-1 flex flex-col">
               <div onClick={() => setIsMenuOpen(false)}>
                 <NavLink href="/assignment">
-                  <span className="text-sm ">CERTIFICATES</span>
+                  <span className="text-sm font-semibold">CERTIFICATES</span>
                 </NavLink>
               </div>
               <div onClick={() => setIsMenuOpen(false)}>
                 <NavLink href="/course">
-                  <span className="text-sm ">COURSES</span>
+                  <span className="text-sm font-semibold">COURSES</span>
                 </NavLink>
               </div>
               
               {/* Resources section in mobile */}
-              <div className="mt-2 pt-2 border-t border-border/30">
+              <div className="mt-2 pt-2 border-t border-border/30 font-semibold">
                 <div className="px-3 py-2">
                   <h3 className="text-sm font-semibold">Resources</h3>
                 </div>
@@ -507,7 +508,7 @@ const Layout = ({ children }: LayoutProps) => {
                   <Link href="/tutorials" className="block py-2 text-sm hover:text-primary" onClick={() => setIsMenuOpen(false)}>
                     Tutorials
                   </Link>
-                  <Link href="/webinars" className="block py-2 text-sm hover:text-primary" onClick={() => setIsMenuOpen(false)}>
+                  <Link href="https://www.flytbase.com/webinars?utm_source=navbar&utm_medium=nav_webinar&utm_id=webinar_lead" className="block py-2 text-sm hover:text-primary" onClick={() => setIsMenuOpen(false)}>
                     Webinars
                   </Link>
                   <Link href="/docs" className="block py-2 text-sm hover:text-primary" onClick={() => setIsMenuOpen(false)}>

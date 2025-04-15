@@ -171,8 +171,8 @@ export const Navbar = () => {
       </div>
       <div className="flex items-center space-x-4">
         <NavLink href="/product">PRODUCT</NavLink>
-        <NavLink href="/blog">BLOG</NavLink>
-        <NavButton href="/contact">CONTACT</NavButton>
+        <NavLink href="https://www.flytbase.com/blog">BLOG</NavLink>
+        <NavButton href="https://www.flytbase.com/contact">CONTACT</NavButton>
       </div>
     </nav>
   );

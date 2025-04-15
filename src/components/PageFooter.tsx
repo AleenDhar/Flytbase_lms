@@ -42,7 +42,10 @@ const PageFooter = () => {
                 "Privacy Policy",
               ].map((item, i) => (
                 <li key={i}>
-                  <a href="#" className="hover:text-white transition-colors">
+                  <a 
+                    href={item === "Contact Us" ? "https://www.flytbase.com/contact" : "#"} 
+                    className="hover:text-white transition-colors"
+                  >
                     {item}
                   </a>
                 </li>
